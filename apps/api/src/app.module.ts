@@ -10,6 +10,12 @@ import { LedgerModule } from './modules/ledger/ledger.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { DispatchModule } from './modules/dispatch/dispatch.module';
+import { FinanceModule } from './modules/finance/finance.module';
+import { GrowthModule } from './modules/growth/growth.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { SupportModule } from './modules/support/support.module';
+import { AdminConsoleModule } from './modules/admin-console/admin-console.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
 import { RealtimeModule } from './modules/realtime/realtime.module';
 import { CuisinesModule } from './modules/cuisines/cuisines.module';
@@ -36,6 +42,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     AuthModule,
     GeoModule,
     CuisinesModule,
+    GrowthModule,
     MenuModule,
     PromotionsModule,
     RestaurantsModule,
@@ -46,6 +53,11 @@ import { SettingsModule } from './modules/settings/settings.module';
     CommercialModule,
     OrdersModule,
     DispatchModule,
+    FinanceModule,
+    PaymentsModule,
+    ReviewsModule,
+    SupportModule,
+    AdminConsoleModule,
     PlatformStaffModule,
     MediaModule,
     HealthModule,

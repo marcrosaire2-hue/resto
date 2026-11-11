@@ -26,8 +26,14 @@ const MUTABLE = [
   'couriers', 'deliveries', 'incidents',
   // Contrats : seule la clôture (validTo) est modifiée.
   'restaurant_contracts',
+  // Phase 5 : finances et paiement en ligne
+  'courier_cash_remittances', 'payouts', 'refunds', 'payments',
+  // Phase 6 : commercial, avis, assistance
+  'coupons', 'coupon_redemptions', 'subscription_plans', 'restaurant_subscriptions', 'ad_campaigns', 'home_sections',
+  'reviews', 'support_tickets',
 ];
-const APPEND_ONLY = ['audit_logs', 'order_status_history', 'ledger_transactions'];
+// payment_events : notifications brutes du prestataire, conservées telles quelles.
+const APPEND_ONLY = ['audit_logs', 'order_status_history', 'ledger_transactions', 'payment_events'];
 
 const target = db.getSiblingDB(dbName);
 const privileges = [

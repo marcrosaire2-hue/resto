@@ -28,11 +28,17 @@ export async function startApp(extraEnv: Record<string, string> = {}): Promise<T
     CLOUDINARY_CLOUD_NAME: '',
     CLOUDINARY_API_KEY: '',
     CLOUDINARY_API_SECRET: '',
+    // Jamais de clé de paiement réelle en test : FedaPay désactivé sauf serveur de test explicite.
+    FEDAPAY_ENV: 'sandbox',
+    FEDAPAY_SECRET_KEY: '',
+    FEDAPAY_PUBLIC_KEY: '',
+    FEDAPAY_WEBHOOK_SECRET: '',
     ...extraEnv,
   });
+  if (!extraEnv.FEDAPAY_API_URL) delete process.env.FEDAPAY_API_URL;
   resetEnvCache();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = configureApp(moduleRef.createNestApplication());
+  const app = configureApp(moduleRef.createNestApplication({ rawBody: true }));
   await app.init();
   // Les index uniques doivent exister avant les tests de doublons.
   await Promise.all(Object.values(mongoose.connections.flatMap((c) => Object.values(c.models))).map((m) => m.syncIndexes()));

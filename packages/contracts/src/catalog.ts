@@ -181,6 +181,8 @@ export interface PublicRestaurantCard {
   neighborhood: string | null;
   commune: string | null;
   isDemo: boolean;
+  /** Mise en avant payante : toujours affichée avec la mention « Sponsorisé ». */
+  sponsored?: boolean;
 }
 
 export interface PublicProduct {

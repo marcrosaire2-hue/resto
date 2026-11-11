@@ -20,6 +20,11 @@ export class CatalogController {
     return (await this.cuisines.list(true)).map(({ id, name, slug, imageUrl, emoji }) => ({ id, name, slug, imageUrl, emoji }));
   }
 
+  @Get('home')
+  home() {
+    return this.catalog.home();
+  }
+
   @Get('zones')
   zones() {
     return this.geo.tree(true);

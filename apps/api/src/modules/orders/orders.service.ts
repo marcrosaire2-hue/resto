@@ -42,7 +42,7 @@ export class OrdersService {
         instructions: opts.audience === 'customer' || showContact ? o.addressSnapshot.instructions : '',
       },
       items: o.items.map((i) => ({ name: i.name, qty: i.qty, unitPrice: i.unitPrice, lineTotal: i.lineTotal, unitDiscount: i.unitDiscount ?? 0, promotionName: i.promotionName ?? null, optionLabels: i.optionLabels, instructions: i.instructions, imageUrl: i.imageUrl })),
-      itemsSubtotal: o.amounts.itemsSubtotal, restaurantDiscount: o.amounts.restaurantDiscount, deliveryFee: o.amounts.deliveryFee, serviceFee: o.amounts.serviceFee, total: o.amounts.total,
+      itemsSubtotal: o.amounts.itemsSubtotal, restaurantDiscount: o.amounts.restaurantDiscount, platformDiscount: o.amounts.platformDiscount, deliveryFee: o.amounts.deliveryFee, serviceFee: o.amounts.serviceFee, total: o.amounts.total,
       paymentMethod: o.paymentMethod, paymentStatus: o.paymentStatus, customerNote: o.customerNote,
       rejectReason: o.rejectReason, cancelReason: o.cancelReason, deliveryCode,
       history: hist.map((h) => ({ status: h.toStatus, label: STATUS_LABELS_FR[h.toStatus], at: h.createdAt.toISOString(), reason: h.reason })),

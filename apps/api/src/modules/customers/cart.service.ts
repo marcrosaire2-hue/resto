@@ -50,6 +50,10 @@ export class CartService {
   }
 
   async clear(userId: string) {
-    await this.carts.updateOne({ userId: new Types.ObjectId(userId) }, { items: [], restaurantId: null });
+    await this.carts.updateOne({ userId: new Types.ObjectId(userId) }, { items: [], restaurantId: null, couponCode: null });
+  }
+
+  async setCoupon(userId: string, code: string | null) {
+    await this.carts.updateOne({ userId: new Types.ObjectId(userId) }, { couponCode: code ? code.trim().toUpperCase().slice(0, 20) : null }, { upsert: true });
   }
 }
