@@ -1,0 +1,46 @@
+# Environnement complet en conteneurs (production ou préproduction auto-hébergée).
+# En production avec MongoDB Atlas, retirer le service « mongo » et renseigner MONGODB_URI dans infra/.env.
+services:
+  mongo:
+    image: mongo:8.0
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes: [mongo-data:/data/db]
+    healthcheck:
+      # Initialise le replica set au premier démarrage (requis pour les transactions).
+      test: ["CMD", "mongosh", "--quiet", "--eval", "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"]
+      interval: 10s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: { context: .., dockerfile: infra/api.Dockerfile }
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      TRUST_PROXY: 1
+    depends_on:
+      mongo: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build: { context: .., dockerfile: infra/web.Dockerfile }
+    environment:
+      API_INTERNAL_URL: http://api:4000
+    depends_on: [api]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.8
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN:?Définir DOMAIN dans infra/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on: [web]
+    restart: unless-stopped
+
+volumes:
+  mongo-data:
+  caddy-data:

@@ -1,0 +1,23 @@
+{
+  "name": "plateforme",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "npm run build -w @plateforme/contracts && npm run build -w @plateforme/api && npm run build -w @plateforme/web",
+    "typecheck": "npm run build -w @plateforme/contracts && npm run typecheck --workspaces --if-present",
+    "test": "npm run build -w @plateforme/contracts && npm run test --workspaces --if-present",
+    "dev:db": "npm run dev:db -w @plateforme/api",
+    "dev:api": "npm run start:dev -w @plateforme/api",
+    "dev:web": "npm run dev -w @plateforme/web",
+    "create-superadmin": "npm run create-superadmin -w @plateforme/api --"
+  },
+  "overrides": {
+    "postcss": "8.5.32"
+  }
+}

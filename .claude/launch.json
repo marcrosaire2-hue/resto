@@ -1,0 +1,32 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:api"
+      ],
+      "port": 4000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "WEB_PORT=3100 npm run dev:web"
+      ],
+      "port": 3100
+    },
+    {
+      "name": "api-local",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "MONGODB_URI='mongodb://127.0.0.1:27017/plateforme_local?replicaSet=rs0' npm run dev:api"
+      ],
+      "port": 4000
+    }
+  ]
+}

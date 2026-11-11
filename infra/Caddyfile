@@ -1,0 +1,9 @@
+# HTTPS automatique (Let's Encrypt). Le front sert aussi /api via son proxy interne.
+{$DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	# Temps réel (Socket.IO) servi par l'API sur le même domaine
+	reverse_proxy /socket.io/* api:4000
+	# Fonds de carte OpenStreetMap chargés directement par le navigateur (pas de proxy nécessaire).
+	reverse_proxy web:3000
+}

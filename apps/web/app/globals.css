@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* ===== Jetons du design system (docs/07-design-system.md) ===== */
+@theme {
+  --color-brand: #F15A24;
+  --color-brand-600: #D9481A;
+  --color-brand-50: #FEF0EA;
+  --color-brand-100: #FDDCCD;
+  --color-wine: #A93226;
+  --color-surface: #FFFFFF;
+  --color-canvas: #F8F8F6;
+  --color-ink: #202124;
+  --color-ink-muted: #5F6368;
+  --color-line: #E8E6E1;
+  --color-success: #239B56;
+  --color-success-50: #E8F6EE;
+  --color-danger: #D64545;
+  --color-danger-50: #FCECEC;
+  --color-warning: #B7791F;
+  --color-warning-50: #FDF5E6;
+  --color-peach: #FDE5D6;
+  --color-peach-200: #FBD3BC;
+  --color-backdrop: #E9DAD0;
+  --color-star: #F5B700;
+
+  --font-sans: 'Manrope Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --shadow-card: 0 1px 2px rgb(32 33 36 / 0.04), 0 4px 16px rgb(32 33 36 / 0.06);
+  --shadow-raised: 0 8px 28px rgb(241 90 36 / 0.25);
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+:focus-visible { outline: 3px solid var(--color-brand-100); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* ===== Gradients repris des maquettes ===== */
+.bg-cta { background-image: linear-gradient(90deg, #F7894F 0%, #F15A24 100%); }
+.bg-header-peach { background-image: linear-gradient(180deg, #FDDCC6 0%, #F7EDE2 45%, #F8F8F6 100%); }
+.bg-header-orange { background-image: linear-gradient(180deg, #F47C44 0%, #F7894F 60%, #FBB58E 100%); }
+.bg-detail { background-image: linear-gradient(180deg, #F58A52 0px, #F9B48C 200px, #FCE6D8 330px, #F8F8F6 460px); }
+.bg-section-orange { background-image: linear-gradient(180deg, #F7894F 0%, #F15A24 100%); }
+.bg-peach-card { background-image: linear-gradient(180deg, #FEE9DC 0%, #FDD9C3 100%); }
+.bg-sky { background-image: linear-gradient(180deg, #2F63B0 0%, #5C8DD0 35%, #A9C6EA 62%, #FFFFFF 88%); }
+.bg-brand-gradient { background-image: linear-gradient(135deg, #F15A24 0%, #F7894F 55%, #FBB07A 100%); }
+.bg-hero { background-image: radial-gradient(120% 90% at 100% 0%, #FDDCCD 0%, transparent 55%), radial-gradient(90% 70% at 0% 100%, #FEF0EA 0%, transparent 60%); }
+
+/* Défilements horizontaux (pastilles, catégories) sans barre visible, comme sur mobile natif */
+.overflow-x-auto { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.overflow-x-auto::-webkit-scrollbar { display: none; }
