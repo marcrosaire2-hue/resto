@@ -46,13 +46,13 @@ export default function HomePage() {
     <MobileScreen className="bg-header-peach">
       <div className="space-y-4 px-4 pb-24 pt-5">
         <div className="flex items-center gap-3">
-          <Link href={me ? '/compte' : '/connexion?suite=/accueil'} aria-label="Mon compte"
+          <Link href={me ? '/compte' : '/connexion'} aria-label="Mon compte"
             className="grid size-12 place-items-center overflow-hidden rounded-[14px] bg-surface font-bold text-brand shadow-[0_2px_10px_rgb(32_33_36/0.08)]">
             {initials ?? <IconUser />}
           </Link>
           <div className="min-w-0 flex-1 text-center">
             <p className="text-xs text-ink-muted">Adresse de livraison</p>
-            <Link href={me ? '/compte' : '/connexion?suite=/accueil'} className="inline-flex max-w-full items-center gap-1 text-[14px] font-semibold">
+            <Link href={me ? '/compte' : '/connexion'} className="inline-flex max-w-full items-center gap-1 text-[14px] font-semibold">
               <IconPin className="size-4 shrink-0" />
               <span className="truncate">{me ? 'Ajouter une adresse' : 'Connectez-vous'}</span>
               <span aria-hidden>⌄</span>

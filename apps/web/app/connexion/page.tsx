@@ -9,9 +9,16 @@ import { api, ApiError } from '@/lib/api';
 import { validate } from '@/lib/forms';
 import { useSession } from '@/lib/session';
 
-/** N'accepte qu'une redirection interne (évite les redirections ouvertes). */
-function safeNext(v: string | null) {
-  return v && v.startsWith('/') && !v.startsWith('//') ? v : '/accueil';
+/** Espace d'arrivée par défaut selon le compte : salariés → administration, restaurateurs → espace restaurant, sinon accueil. */
+function homeFor(me: MeResponse) {
+  if (me.platformRoles.length > 0) return '/admin';
+  if (me.restaurants.length > 0) return '/pro';
+  return '/accueil';
+}
+
+/** N'accepte qu'une redirection interne (évite les redirections ouvertes) ; sinon l'espace du compte. */
+function safeNext(v: string | null, me: MeResponse) {
+  return v && v.startsWith('/') && !v.startsWith('//') && v !== '/accueil' ? v : homeFor(me);
 }
 
 function LoginForm() {
@@ -31,8 +38,9 @@ function LoginForm() {
     setErrors({});
     setLoading(true);
     try {
-      setMe(await api<MeResponse>('/auth/login', { method: 'POST', body: values }));
-      router.replace(safeNext(params.get('suite')));
+      const me = await api<MeResponse>('/auth/login', { method: 'POST', body: values });
+      setMe(me);
+      router.replace(safeNext(params.get('suite'), me));
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     } finally {
