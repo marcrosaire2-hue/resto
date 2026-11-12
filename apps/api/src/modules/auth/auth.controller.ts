@@ -4,7 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { z } from 'zod';
 import {
-  changePasswordSchema, forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, updateProfileSchema,
+  changePasswordSchema, requestEmailCodeSchema, resetWithCodeSchema, loginSchema, registerSchema, resetPasswordSchema, updateProfileSchema,
 } from '@plateforme/contracts';
 import { randomToken } from '../../common/crypto';
 import { env } from '../../common/env';
@@ -66,13 +66,22 @@ export class AuthController {
     clearSessionCookie(res);
   }
 
+  /** Code à 6 chiffres par e-mail : inscription (avant la création du compte) ou mot de passe oublié. */
   @Public()
   @Throttle({ default: { limit: () => Math.max(1, Math.floor(authLimit() / 2)), ttl: 60_000 } })
   @HttpCode(202)
-  @Post('auth/password/forgot')
-  async forgot(@Body(new ZodPipe(forgotPasswordSchema)) body: z.output<typeof forgotPasswordSchema>, @Req() req: AppRequest) {
-    await this.auth.requestPasswordReset(body.identifier, requestMeta(req));
-    return { message: 'Si un compte correspond, des instructions de réinitialisation ont été envoyées.' };
+  @Post('auth/email-code')
+  async emailCode(@Body(new ZodPipe(requestEmailCodeSchema)) body: z.output<typeof requestEmailCodeSchema>, @Req() req: AppRequest) {
+    await this.auth.requestEmailCode(body.email, body.purpose, requestMeta(req));
+    return { message: body.purpose === 'REGISTER' ? 'Un code vient d’être envoyé à votre adresse e-mail.' : 'Si un compte correspond à cette adresse, un code vient d’être envoyé.' };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: authLimit, ttl: 60_000 } })
+  @HttpCode(204)
+  @Post('auth/password/reset-code')
+  async resetWithCode(@Body(new ZodPipe(resetWithCodeSchema)) body: z.output<typeof resetWithCodeSchema>, @Req() req: AppRequest) {
+    await this.auth.resetWithCode(body.email, body.code, body.password, requestMeta(req));
   }
 
   @Public()
@@ -104,6 +113,13 @@ export class AuthController {
     @Body(new ZodPipe(changePasswordSchema)) body: z.output<typeof changePasswordSchema>,
     @Req() req: AppRequest,
   ) {
-    await this.auth.changePassword(a.userId, a.sessionId, body.currentPassword, body.password, requestMeta(req));
+    await this.auth.changePassword(a.userId, a.sessionId, { code: body.code, currentPassword: body.currentPassword }, body.password, requestMeta(req));
+  }
+
+  @Throttle({ default: { limit: () => Math.max(1, Math.floor(authLimit() / 2)), ttl: 60_000 } })
+  @HttpCode(202)
+  @Post('users/me/password/code')
+  passwordCode(@CurrentAuth() a: AuthContext) {
+    return this.auth.requestChangeCode(a.userId);
   }
 }

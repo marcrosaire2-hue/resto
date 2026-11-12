@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import * as argon2 from 'argon2';
 import { Model, Types } from 'mongoose';
@@ -21,7 +21,7 @@ export class UsersService {
     return argon2.verify(hash, password);
   }
 
-  async create(input: { fullName: string; phone: string; email?: string; password: string }) {
+  async create(input: { fullName: string; phone: string; email?: string; password: string; emailVerified?: boolean }) {
     if (await this.model.exists({ phone: input.phone })) {
       throw conflict('PHONE_TAKEN', 'Un compte existe déjà avec ce numéro.');
     }
@@ -33,6 +33,7 @@ export class UsersService {
         fullName: input.fullName,
         phone: input.phone,
         email: input.email ?? null,
+        emailVerifiedAt: input.emailVerified ? new Date() : null,
         passwordHash: await this.hashPassword(input.password),
       });
     } catch (e) {
@@ -47,6 +48,10 @@ export class UsersService {
 
   findByIdWithPassword(id: string | Types.ObjectId) {
     return this.model.findById(id).select('+passwordHash');
+  }
+
+  findByEmail(email: string) {
+    return this.model.findOne({ email });
   }
 
   findByPhone(phone: string) {
@@ -71,6 +76,14 @@ export class UsersService {
   }
 
   async updateProfile(userId: string, patch: { fullName?: string; email?: string }) {
+    // L'adresse e-mail sert à recevoir les codes de sécurité : elle ne change pas sans vérification.
+    if (patch.email !== undefined) {
+      const current = await this.model.findById(userId, { email: 1 }).lean();
+      if ((current?.email ?? undefined) !== patch.email) {
+        throw new UnprocessableEntityException({ statusCode: 422, error: 'EMAIL_LOCKED', message: 'Pour changer d’adresse e-mail, contactez l’assistance.' });
+      }
+      delete patch.email;
+    }
     if (patch.email && (await this.model.exists({ email: patch.email, _id: { $ne: userId } }))) {
       throw conflict('EMAIL_TAKEN', 'Un compte existe déjà avec cette adresse e-mail.');
     }

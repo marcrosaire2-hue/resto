@@ -10,6 +10,7 @@ export class User {
   @Prop({ type: String, default: null, lowercase: true, trim: true }) email: string | null;
   @Prop({ required: true, select: false }) passwordHash: string;
   @Prop({ type: Date, default: null }) phoneVerifiedAt: Date | null;
+  @Prop({ type: Date, default: null }) emailVerifiedAt: Date | null;
   @Prop({ type: String, enum: ['ACTIVE', 'SUSPENDED'], default: 'ACTIVE' }) status: UserStatus;
   @Prop({ type: String, default: null }) avatarPublicId: string | null;
   @Prop({ default: 0 }) failedLoginCount: number;

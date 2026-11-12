@@ -23,6 +23,7 @@ import { GeoModule } from './modules/geo/geo.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { CsrfGuard, SessionGuard } from './modules/auth/auth.guards';
 import { AuthModule } from './modules/auth/auth.module';
+import { MailModule } from './modules/mail/brevo.mailer';
 import { HealthModule } from './modules/health/health.module';
 import { MediaModule } from './modules/media/media.module';
 import { PlatformStaffModule } from './modules/platform-staff/platform-staff.module';
@@ -37,6 +38,7 @@ import { SettingsModule } from './modules/settings/settings.module';
       useFactory: () => ({ throttlers: [{ name: 'default', ttl: 60_000, limit: env().THROTTLE_LIMIT_PER_MIN }] }),
     }),
     AuditModule,
+    MailModule,
     SettingsModule,
     RbacModule,
     AuthModule,

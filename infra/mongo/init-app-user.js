@@ -31,6 +31,8 @@ const MUTABLE = [
   // Phase 6 : commercial, avis, assistance
   'coupons', 'coupon_redemptions', 'subscription_plans', 'restaurant_subscriptions', 'ad_campaigns', 'home_sections',
   'reviews', 'support_tickets',
+  // Codes de vérification par e-mail (supprimés automatiquement après expiration)
+  'email_codes',
 ];
 // payment_events : notifications brutes du prestataire, conservées telles quelles.
 const APPEND_ONLY = ['audit_logs', 'order_status_history', 'ledger_transactions', 'payment_events'];

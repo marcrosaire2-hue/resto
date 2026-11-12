@@ -9,6 +9,7 @@ import { PermissionService } from '../rbac/permission.service';
 import { SettingsService } from '../settings/settings.service';
 import { UserDocument } from '../users/user.schema';
 import { UsersService } from '../users/users.service';
+import { EmailCodeService } from './email-code.service';
 import { PasswordResetToken, Session } from './session.schema';
 
 const DEFAULT_MAX_FAILED = 5; // valeur de sécurité, surchargée par le paramètre auth.max_failed_logins
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly settings: SettingsService,
     @InjectModel(Session.name) private readonly sessions: Model<Session>,
     @InjectModel(PasswordResetToken.name) private readonly resets: Model<PasswordResetToken>,
+    private readonly emailCodes: EmailCodeService,
   ) {}
 
   async createSession(userId: Types.ObjectId, meta: Meta) {
@@ -63,8 +65,28 @@ export class AuthService {
     await this.sessions.updateMany(filter, { revokedAt: new Date() });
   }
 
-  async register(input: { fullName: string; phone: string; email?: string; password: string }, meta: Meta) {
-    const user = await this.users.create(input);
+  /** Envoi d'un code par e-mail (inscription ou mot de passe oublié). */
+  async requestEmailCode(email: string, purpose: 'REGISTER' | 'RESET', meta: Meta) {
+    if (purpose === 'REGISTER') {
+      if (await this.users.findByEmail(email)) {
+        throw new HttpException({ statusCode: 409, error: 'EMAIL_TAKEN', message: 'Un compte existe déjà avec cette adresse e-mail. Connectez-vous ou utilisez « Mot de passe oublié ».' }, HttpStatus.CONFLICT);
+      }
+      await this.emailCodes.send(email, 'REGISTER');
+      return;
+    }
+    // Mot de passe oublié : réponse identique que le compte existe ou non (pas d'énumération).
+    const user = await this.users.findByEmail(email);
+    if (!user || user.status !== 'ACTIVE') return;
+    await this.emailCodes.send(email, 'RESET');
+    await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.password_reset_requested', entity: 'user', entityId: String(user._id), ...meta });
+  }
+
+  async register(input: { fullName: string; phone: string; email: string; code: string; password: string }, meta: Meta) {
+    // Vérifications d'unicité avant de consommer le code (un échec ne doit pas « brûler » le code).
+    if (await this.users.findByPhone(input.phone)) throw new HttpException({ statusCode: 409, error: 'PHONE_TAKEN', message: 'Un compte existe déjà avec ce numéro.' }, HttpStatus.CONFLICT);
+    if (await this.users.findByEmail(input.email)) throw new HttpException({ statusCode: 409, error: 'EMAIL_TAKEN', message: 'Un compte existe déjà avec cette adresse e-mail.' }, HttpStatus.CONFLICT);
+    await this.emailCodes.consume(input.email, 'REGISTER', input.code);
+    const user = await this.users.create({ fullName: input.fullName, phone: input.phone, email: input.email, password: input.password, emailVerified: true });
     await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.register', entity: 'user', entityId: String(user._id), ...meta });
     return { user, session: await this.createSession(user._id, meta) };
   }
@@ -111,26 +133,6 @@ export class AuthService {
   }
 
   /**
-   * Demande de réinitialisation. La réponse est toujours identique (pas d'énumération des comptes).
-   * Aucun canal SMS/e-mail n'est encore branché (F42) : hors production, le lien est écrit dans les journaux
-   * du serveur pour permettre les tests ; en production, il n'est jamais journalisé.
-   */
-  async requestPasswordReset(identifier: string, meta: Meta) {
-    const user = await this.users.findByIdentifierWithPassword(identifier);
-    if (!user || user.status !== 'ACTIVE') return;
-    const token = randomToken();
-    await this.resets.create({ tokenHash: sha256(token), userId: user._id, expiresAt: new Date(Date.now() + RESET_TTL_MIN * 60_000) });
-    await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.password_reset_requested', entity: 'user', entityId: String(user._id), ...meta });
-    const link = `${env().APP_PUBLIC_URL}/reinitialiser?token=${token}`;
-    if (env().NODE_ENV === 'production') {
-      this.logger.error('Réinitialisation demandée mais aucun canal de notification n’est configuré (F42).');
-    } else {
-      this.logger.warn(`[DEV] Aucun canal configuré — lien de réinitialisation : ${link}`);
-    }
-    return { devLink: env().NODE_ENV === 'production' ? undefined : link };
-  }
-
-  /**
    * Lien d'activation / de réinitialisation à usage unique (même mécanisme que « mot de passe oublié »).
    * Tant qu'aucun canal SMS n'est configuré (F42), il est remis à la personne qui crée le compte.
    */
@@ -154,9 +156,31 @@ export class AuthService {
     await this.audit.record({ actorUserId: String(rec.userId), scope: 'self', action: 'auth.password_reset', entity: 'user', entityId: String(rec.userId), ...meta });
   }
 
-  async changePassword(userId: string, sessionId: string, current: string, next: string, meta: Meta) {
+  /** Réinitialisation par le code reçu par e-mail : toutes les sessions sont fermées. */
+  async resetWithCode(email: string, code: string, password: string, meta: Meta) {
+    const user = await this.users.findByEmail(email);
+    if (!user || user.status !== 'ACTIVE') throw new HttpException({ statusCode: 400, error: 'CODE_EXPIRED', message: 'Code expiré ou introuvable. Demandez un nouveau code.' }, HttpStatus.BAD_REQUEST);
+    await this.emailCodes.consume(email, 'RESET', code);
+    await this.users.setPassword(user._id, password);
+    await this.revokeAllSessions(user._id);
+    await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.password_reset', entity: 'user', entityId: String(user._id), after: { via: 'email_code' }, ...meta });
+  }
+
+  /** Code pour modifier le mot de passe (utilisateur connecté, envoyé à son adresse e-mail). */
+  async requestChangeCode(userId: string) {
+    const user = await this.users.findById(userId);
+    if (!user?.email) throw new HttpException({ statusCode: 422, error: 'NO_EMAIL', message: 'Aucune adresse e-mail sur ce compte : utilisez votre mot de passe actuel.' }, HttpStatus.UNPROCESSABLE_ENTITY);
+    await this.emailCodes.send(user.email, 'CHANGE_PASSWORD');
+    return { sentTo: user.email.replace(/^(.).*(@.*)$/, '$1•••$2') };
+  }
+
+  async changePassword(userId: string, sessionId: string, proof: { code?: string; currentPassword?: string }, next: string, meta: Meta) {
     const user = await this.users.findByIdWithPassword(userId);
-    if (!user || !(await this.users.verifyPassword(user.passwordHash, current))) {
+    if (!user) throw new HttpException({ statusCode: 400, error: 'WRONG_PASSWORD', message: 'Mot de passe actuel incorrect.' }, HttpStatus.BAD_REQUEST);
+    if (proof.code) {
+      if (!user.email) throw new HttpException({ statusCode: 422, error: 'NO_EMAIL', message: 'Aucune adresse e-mail sur ce compte.' }, HttpStatus.UNPROCESSABLE_ENTITY);
+      await this.emailCodes.consume(user.email, 'CHANGE_PASSWORD', proof.code);
+    } else if (!proof.currentPassword || !(await this.users.verifyPassword(user.passwordHash, proof.currentPassword))) {
       throw new HttpException({ statusCode: 400, error: 'WRONG_PASSWORD', message: 'Mot de passe actuel incorrect.' }, HttpStatus.BAD_REQUEST);
     }
     await this.users.setPassword(user._id, next);

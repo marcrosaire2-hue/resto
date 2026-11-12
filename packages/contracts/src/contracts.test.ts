@@ -59,11 +59,16 @@ describe('rôles système', () => {
 });
 
 describe('registerSchema', () => {
-  const base = { fullName: 'Ada Houngbo', phone: '0197000000', password: 'motdepasse123', passwordConfirm: 'motdepasse123' };
-  it('accepte une inscription valide et normalise le téléphone', () => {
+  const base = { fullName: 'Ada Houngbo', phone: '0197000000', email: ' Ada@Example.com ', code: '042917', password: 'motdepasse123', passwordConfirm: 'motdepasse123' };
+  it('accepte une inscription valide et normalise le téléphone et l’e-mail', () => {
     const r = registerSchema.parse(base);
     expect(r.phone).toBe('+2290197000000');
-    expect(r.email).toBeUndefined();
+    expect(r.email).toBe('ada@example.com');
+  });
+  it('exige l’adresse e-mail et un code à 6 chiffres', () => {
+    expect(registerSchema.safeParse({ ...base, email: undefined }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...base, code: '12345' }).success).toBe(false);
+    expect(registerSchema.safeParse({ ...base, code: '12a456' }).success).toBe(false);
   });
   it('refuse des mots de passe différents', () => {
     expect(registerSchema.safeParse({ ...base, passwordConfirm: 'autre1234567' }).success).toBe(false);

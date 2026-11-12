@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Types } from 'mongoose';
-import { Client, db, nextPhone, PASSWORD, registeredClient, startApp, TestEnv } from './helpers';
+import { Client, db, lastCode, nextPhone, PASSWORD, registeredClient, sentMails, startApp, TestEnv } from './helpers';
 
 let t: TestEnv;
 beforeAll(async () => {
@@ -10,11 +10,91 @@ afterAll(async () => {
   await t?.close();
 });
 
+describe('Codes de vérification par e-mail', () => {
+  it('exige un code valide avant de créer le compte ; 5 erreurs invalident le code', async () => {
+    const c = await new Client(t.app).init();
+    const email = 'koffi@test.local';
+    const body = (code: string) => ({ fullName: 'Koffi Test', phone: nextPhone(), email, code, password: PASSWORD, passwordConfirm: PASSWORD });
+    expect((await c.post('/api/auth/register', body('123456'))).body.error).toBe('CODE_EXPIRED'); // aucun code demandé
+    await c.post('/api/auth/email-code', { email, purpose: 'REGISTER' }).expect(202);
+    const mail = sentMails.at(-1)!;
+    expect(mail.to).toBe(email);
+    expect(mail.subject).toMatch(/^\d{6} est votre code/);
+    const code = lastCode(email)!;
+    const wrong = code === '000000' ? '111111' : '000000';
+    const r1 = await c.post('/api/auth/register', body(wrong));
+    expect(r1.status).toBe(400);
+    expect(r1.body.message).toMatch(/Il reste 4 essais/);
+    for (let i = 0; i < 3; i++) await c.post('/api/auth/register', body(wrong));
+    expect((await c.post('/api/auth/register', body(wrong))).body.error).toBe('CODE_LOCKED');
+    expect((await c.post('/api/auth/register', body(code))).body.error).toBe('CODE_EXPIRED'); // même le bon code ne passe plus
+    const stored = await db(t).collection('email_codes').findOne({ email });
+    expect(JSON.stringify(stored)).not.toContain(code); // jamais stocké en clair
+  });
+
+  it('impose un délai entre deux envois et refuse une adresse déjà inscrite', async () => {
+    const c = await new Client(t.app).init();
+    await c.post('/api/auth/email-code', { email: 'pressé@test.local'.replace('é', 'e'), purpose: 'REGISTER' }).expect(202);
+    const again = await c.post('/api/auth/email-code', { email: 'presse@test.local', purpose: 'REGISTER' });
+    expect(again.status).toBe(429);
+    expect(again.body.error).toBe('CODE_TOO_SOON');
+    const { email } = await registeredClient(t.app);
+    expect((await c.post('/api/auth/email-code', { email, purpose: 'REGISTER' })).body.error).toBe('EMAIL_TAKEN');
+  });
+
+  it('un code expiré est refusé', async () => {
+    const c = await new Client(t.app).init();
+    const email = 'expire@test.local';
+    await c.post('/api/auth/email-code', { email, purpose: 'REGISTER' }).expect(202);
+    await db(t).collection('email_codes').updateMany({ email }, { $set: { expiresAt: new Date(Date.now() - 1000) } });
+    const r = await c.post('/api/auth/register', { fullName: 'Expiré', phone: nextPhone(), email, code: lastCode(email), password: PASSWORD, passwordConfirm: PASSWORD });
+    expect(r.body.error).toBe('CODE_EXPIRED');
+  });
+
+  it('mot de passe oublié : code par e-mail, nouveau mot de passe, sessions fermées, code à usage unique', async () => {
+    const { client: old, phone, email } = await registeredClient(t.app);
+    const c = await new Client(t.app).init();
+    await c.post('/api/auth/email-code', { email, purpose: 'RESET' }).expect(202);
+    const code = lastCode(email)!;
+    const newPass = 'nouveaumdp456';
+    expect((await c.post('/api/auth/password/reset-code', { email, code, password: newPass, passwordConfirm: newPass })).status).toBe(204);
+    expect((await c.post('/api/auth/password/reset-code', { email, code, password: newPass, passwordConfirm: newPass })).status).toBe(400);
+    expect((await old.get('/api/auth/me')).status).toBe(401);
+    expect((await c.post('/api/auth/login', { identifier: email, password: newPass })).status).toBe(200);
+    expect((await c.post('/api/auth/login', { identifier: phone, password: newPass })).status).toBe(200);
+  });
+
+  it('changement de mot de passe connecté par code reçu par e-mail ; l’adresse ne peut pas être modifiée sans vérification', async () => {
+    const { client, email } = await registeredClient(t.app);
+    const r = await client.post('/api/users/me/password/code');
+    expect(r.status).toBe(202);
+    expect(r.body.sentTo).toMatch(/^u•••@test\.local$/);
+    const code = lastCode(email)!;
+    expect((await client.post('/api/users/me/password', { code, password: 'changé12345a', passwordConfirm: 'changé12345a' })).status).toBe(204);
+    expect((await client.patch('/api/users/me', { email: 'pirate@test.local' })).body.error).toBe('EMAIL_LOCKED');
+  });
+
+  it('sans Brevo configuré, l’envoi est refusé clairement (aucun faux envoi)', async () => {
+    const t2 = await startApp({ BREVO_API_KEY: '' });
+    try {
+      const c = await new Client(t2.app).init();
+      const r = await c.post('/api/auth/email-code', { email: 'sansmail@test.local', purpose: 'REGISTER' });
+      expect(r.status).toBe(503);
+      expect(r.body.error).toBe('MAIL_UNAVAILABLE');
+    } finally {
+      await t2.close();
+      process.env.BREVO_API_KEY = 'test-brevo-key';
+      (await import('../src/common/env')).resetEnvCache();
+    }
+  });
+});
+
 describe('Authentification', () => {
   it("inscrit un client, ouvre une session et renvoie son profil sans données sensibles", async () => {
     const c = await new Client(t.app).init();
+    await c.post('/api/auth/email-code', { email: 'Ada@Example.com', purpose: 'REGISTER' }).expect(202);
     const r = await c.post('/api/auth/register', {
-      fullName: 'Ada Houngbo', phone: '01 97 11 22 33', email: 'Ada@Example.com', password: PASSWORD, passwordConfirm: PASSWORD,
+      fullName: 'Ada Houngbo', phone: '01 97 11 22 33', email: 'Ada@Example.com', code: lastCode('ada@example.com'), password: PASSWORD, passwordConfirm: PASSWORD,
     });
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ fullName: 'Ada Houngbo', phone: '+2290197112233', email: 'ada@example.com', platformRoles: [], restaurants: [] });
@@ -27,9 +107,14 @@ describe('Authentification', () => {
   it('refuse un numéro déjà utilisé', async () => {
     const { phone } = await registeredClient(t.app);
     const c = await new Client(t.app).init();
-    const r = await c.post('/api/auth/register', { fullName: 'Doublon', phone, password: PASSWORD, passwordConfirm: PASSWORD });
+    await c.post('/api/auth/email-code', { email: 'doublon@test.local', purpose: 'REGISTER' }).expect(202);
+    const code = lastCode('doublon@test.local');
+    const r = await c.post('/api/auth/register', { fullName: 'Doublon', phone, email: 'doublon@test.local', code, password: PASSWORD, passwordConfirm: PASSWORD });
     expect(r.status).toBe(409);
     expect(r.body.error).toBe('PHONE_TAKEN');
+    // Le code n'a pas été consommé par l'échec : il reste utilisable avec un autre numéro.
+    const ok = await c.post('/api/auth/register', { fullName: 'Doublon', phone: nextPhone(), email: 'doublon@test.local', code, password: PASSWORD, passwordConfirm: PASSWORD });
+    expect(ok.status).toBe(201);
   });
 
   it('refuse des données invalides avec des messages par champ', async () => {
@@ -37,7 +122,7 @@ describe('Authentification', () => {
     const r = await c.post('/api/auth/register', { fullName: 'X', phone: '97000000', password: 'court', passwordConfirm: 'autre' });
     expect(r.status).toBe(400);
     const paths = r.body.issues.map((i: { path: string }) => i.path);
-    expect(paths).toEqual(expect.arrayContaining(['fullName', 'phone', 'password']));
+    expect(paths).toEqual(expect.arrayContaining(['fullName', 'phone', 'email', 'code', 'password']));
   });
 
   it('stocke le mot de passe haché en Argon2id', async () => {
@@ -89,11 +174,9 @@ describe('Authentification', () => {
     expect((await c.get('/api/admin/settings')).status).toBe(401);
   });
 
-  it('réinitialise le mot de passe par jeton à usage unique et révoque les sessions existantes', async () => {
+  it('réinitialise le mot de passe par jeton à usage unique (lien d’activation) et révoque les sessions existantes', async () => {
     const { client: old, phone } = await registeredClient(t.app);
     const c = await new Client(t.app).init();
-    const r = await c.post('/api/auth/password/forgot', { identifier: phone });
-    expect(r.status).toBe(202);
     // Le jeton n'est jamais renvoyé par l'API : on en crée un connu directement pour le test.
     const { sha256 } = await import('../src/common/crypto');
     const user = await db(t).collection('users').findOne({ phone: `+229${phone}` });
@@ -108,10 +191,12 @@ describe('Authentification', () => {
     expect((await c.post('/api/auth/login', { identifier: phone, password: newPass })).status).toBe(200);
   });
 
-  it('répond pareil à « mot de passe oublié » pour un compte inconnu', async () => {
+  it('répond pareil à « mot de passe oublié » pour une adresse inconnue, sans envoyer d’e-mail', async () => {
     const c = await new Client(t.app).init();
-    const r = await c.post('/api/auth/password/forgot', { identifier: nextPhone() });
+    const before = sentMails.length;
+    const r = await c.post('/api/auth/email-code', { email: 'inconnu@test.local', purpose: 'RESET' });
     expect(r.status).toBe(202);
+    expect(sentMails.length).toBe(before);
   });
 
   it('change le mot de passe en conservant la session courante et en révoquant les autres', async () => {
