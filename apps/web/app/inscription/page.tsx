@@ -75,8 +75,7 @@ export default function RegisterPage() {
         <form onSubmit={onDetails} noValidate className="space-y-4">
           {formError && <Alert tone="danger">{formError}</Alert>}
           <Field label="Nom complet" autoComplete="name" value={values.fullName} onChange={set('fullName')} error={errors.fullName} />
-          <Field label="Adresse e-mail" type="email" autoComplete="email" value={values.email} onChange={set('email')} error={errors.email}
-            hint="Un code de vérification vous sera envoyé." />
+          <Field label="Adresse e-mail" type="email" autoComplete="email" value={values.email} onChange={set('email')} error={errors.email} />
           <Field label="Numéro de téléphone" type="tel" inputMode="tel" autoComplete="tel" placeholder="01 97 00 00 00"
             value={values.phone} onChange={set('phone')} error={errors.phone} hint="Utilisé par le livreur pour vous joindre." />
           <Field label="Mot de passe" type="password" autoComplete="new-password" value={values.password} onChange={set('password')}
