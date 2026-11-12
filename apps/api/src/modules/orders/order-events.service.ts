@@ -81,7 +81,8 @@ export class OrderEventsService {
         title: `Commande ${o.number} — ${STATUS_LABELS_FR[status]}`, body: reason ? `${msg} Motif : ${reason}` : msg, link: `/commandes/${o._id}`,
       });
     }
-    if (status === 'CANCELLED') {
+    // acceptDeadlineAt nul : commande jamais transmise au restaurant (paiement non abouti).
+    if (status === 'CANCELLED' && o.acceptDeadlineAt) {
       await this.notifications.notify({
         userIds: await this.restaurantUsers(o.restaurantId), eventKey: `order:${o._id}:cancelled:restaurant`, type: 'order.cancelled',
         title: `Commande ${o.number} annulée`, body: reason ?? '', link: `/pro/${o.restaurantId}/commandes`,

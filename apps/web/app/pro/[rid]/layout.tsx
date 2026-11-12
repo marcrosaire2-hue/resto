@@ -21,6 +21,8 @@ export default function ProLayout({ children }: { children: ReactNode }) {
       { href: `${base}/horaires`, label: 'Horaires et zones', show: can('restaurant.profile.view') },
       { href: `${base}/menu`, label: 'Menu', show: can('menu.view') },
       { href: `${base}/promotions`, label: 'Promotions', show: can('promotions.manage') },
+      { href: `${base}/avis`, label: 'Avis', show: can('reviews.reply') },
+      { href: `${base}/finances`, label: 'Finances', show: can('finance.restaurant.view') },
       { href: `/cuisine/${rid}`, label: 'Écran cuisine ↗', show: can('kitchen.view') },
       { href: `${base}/personnel`, label: 'Personnel', show: can('staff.view') },
     ]}>

@@ -24,7 +24,8 @@ export const cartItemSchema = z.object({
 });
 export type CartItemInput = z.input<typeof cartItemSchema>;
 
-export const PAYMENT_METHODS = ['CASH'] as const; // Mobile Money : phase 7
+export const PAYMENT_METHODS = ['CASH', 'MOBILE_MONEY'] as const; // Mobile Money via FedaPay (MTN, Moov)
+export const PAYMENT_METHOD_LABELS: Record<(typeof PAYMENT_METHODS)[number], string> = { CASH: 'Espèces à la livraison', MOBILE_MONEY: 'Mobile Money (MTN, Moov)' };
 export const checkoutSchema = z.object({
   addressId: objectId,
   paymentMethod: z.enum(PAYMENT_METHODS),
@@ -36,7 +37,7 @@ export const checkoutSchema = z.object({
 
 /* ===================== Machine à états ===================== */
 export const ORDER_STATUSES = [
-  'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'WAITING_FOR_COURIER', 'COURIER_ASSIGNED',
+  'AWAITING_PAYMENT', 'PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'WAITING_FOR_COURIER', 'COURIER_ASSIGNED',
   'PICKED_UP', 'IN_DELIVERY', 'DELIVERED', 'REJECTED', 'CANCELLED', 'DELIVERY_FAILED', 'REFUND_PENDING', 'REFUNDED',
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
@@ -44,7 +45,7 @@ export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type ActorKind = 'customer' | 'restaurant' | 'courier' | 'ops' | 'finance' | 'system';
 
 export const STATUS_LABELS_FR: Record<OrderStatus, string> = {
-  PENDING: 'Commande reçue', ACCEPTED: 'Acceptée par le restaurant', PREPARING: 'En préparation', READY: 'Prête',
+  AWAITING_PAYMENT: 'En attente du paiement', PENDING: 'Commande reçue', ACCEPTED: 'Acceptée par le restaurant', PREPARING: 'En préparation', READY: 'Prête',
   WAITING_FOR_COURIER: 'En attente d’un livreur', COURIER_ASSIGNED: 'Livreur affecté', PICKED_UP: 'Récupérée par le livreur',
   IN_DELIVERY: 'En cours de livraison', DELIVERED: 'Livrée', REJECTED: 'Refusée', CANCELLED: 'Annulée',
   DELIVERY_FAILED: 'Livraison échouée', REFUND_PENDING: 'Remboursement en cours', REFUNDED: 'Remboursée',
@@ -54,6 +55,11 @@ interface Rule { to: OrderStatus; actors: ActorKind[]; permission?: string; reas
 
 /** Transitions autorisées (docs/04 §4.2). Toute autre transition est refusée côté serveur. */
 export const TRANSITIONS: Record<OrderStatus, Rule[]> = {
+  // Paiement en ligne : la commande n'est transmise au restaurant qu'après confirmation vérifiée du prestataire.
+  AWAITING_PAYMENT: [
+    { to: 'PENDING', actors: ['system'] },
+    { to: 'CANCELLED', actors: ['customer', 'ops', 'system'], reasonRequired: true },
+  ],
   PENDING: [
     { to: 'ACCEPTED', actors: ['restaurant'], permission: 'orders.accept' },
     { to: 'REJECTED', actors: ['restaurant'], permission: 'orders.reject', reasonRequired: true },
@@ -153,6 +159,8 @@ export interface Quote {
   lines: QuoteLine[];
   itemsSubtotal: number;
   restaurantDiscount: number;
+  platformDiscount: number;
+  coupon: { code: string; applied: boolean; message: string | null } | null;
   deliveryFee: number | null;
   serviceFee: number | null;
   total: number | null;
@@ -165,7 +173,8 @@ export interface OrderView {
   customer?: { name: string; phone: string | null };
   address: { label: string; neighborhood: string; commune: string; streetLandmark: string; instructions: string };
   items: { name: string; qty: number; unitPrice: number; lineTotal: number; unitDiscount: number; promotionName: string | null; optionLabels: string[]; instructions: string; imageUrl: string | null }[];
-  itemsSubtotal: number; restaurantDiscount: number; deliveryFee: number; serviceFee: number; total: number;
+  itemsSubtotal: number; restaurantDiscount: number; platformDiscount: number; deliveryFee: number; serviceFee: number; total: number;
+  refundedTotal?: number; reviewed?: boolean;
   paymentMethod: string; paymentStatus: string; customerNote: string;
   rejectReason: string | null; cancelReason: string | null;
   deliveryCode?: string;

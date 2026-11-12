@@ -9,6 +9,7 @@ import { GeoService } from '../geo/geo.service';
 import { imageUrl } from '../media/cloudinary';
 import { MenuCategory, Product } from '../menu/menu.schemas';
 import { PromotionsService } from '../promotions/promotions.service';
+import { GrowthService } from '../growth/growth.service';
 import { Restaurant } from '../restaurants/restaurant.schema';
 
 export type CatalogSort = 'popular' | 'rating' | 'new' | 'prep';
@@ -27,6 +28,7 @@ export class CatalogService {
     private readonly cuisines: CuisinesService,
     private readonly geo: GeoService,
     private readonly promotions: PromotionsService,
+    private readonly growth: GrowthService,
   ) {}
 
   private async cards(list: R[], now = new Date()): Promise<PublicRestaurantCard[]> {
@@ -74,7 +76,10 @@ export class CatalogService {
     const docs = (await this.restaurants.find(filter, { draft: 0 }).sort(sort[f.sort]).limit(Math.min(f.limit, 100)).lean()) as R[];
     let cards = await this.cards(docs);
     if (f.openNow) cards = cards.filter((c) => c.isOpen);
-    return cards;
+    // Restaurants sponsorisés (campagne « tête de liste » active) : en premier, toujours signalés comme tels.
+    const sponsored = new Set((await this.growth.activeAds('TOP_LIST')).map((a) => String(a.restaurantId)));
+    cards = cards.map((c) => ({ ...c, sponsored: sponsored.has(c.id) }));
+    return [...cards.filter((c) => c.sponsored), ...cards.filter((c) => !c.sponsored)];
   }
 
   async restaurantBySlug(slug: string): Promise<PublicRestaurantDetail> {
@@ -121,5 +126,43 @@ export class CatalogService {
       restaurants,
       products: prods.map((p) => ({ ...this.productDto(p), restaurantName: oMap.get(String(p.restaurantId))?.name ?? '', restaurantSlug: oMap.get(String(p.restaurantId))?.slug ?? '' })),
     };
+  }
+
+  /** Accueil composé des sections administrées (ou d'un accueil par défaut si aucune n'est configurée). */
+  async home() {
+    const sections = await this.growth.activeSections();
+    const list = sections.length ? sections : [
+      { type: 'CUISINES', title: 'Catégories populaires', restaurantIds: [] as Types.ObjectId[] },
+      { type: 'POPULAR_RESTAURANTS', title: 'Restaurants', restaurantIds: [] as Types.ObjectId[] },
+    ];
+    const out: unknown[] = [];
+    for (const s of list) {
+      if (s.type === 'CUISINES') out.push({ type: s.type, title: s.title, cuisines: (await this.cuisines.list(true)).map(({ id, name, slug, imageUrl, emoji }) => ({ id, name, slug, imageUrl, emoji })) });
+      else if (s.type === 'BANNERS') {
+        const ads = await this.growth.activeAds('BANNER');
+        const rs = (await this.restaurants.find({ _id: { $in: ads.map((a) => a.restaurantId) }, ...VISIBLE }, { slug: 1, name: 1, coverPublicId: 1 }).lean());
+        const bySlug = new Map(rs.map((r) => [String(r._id), r]));
+        const banners = ads.flatMap((a) => { const r = bySlug.get(String(a.restaurantId)); return r ? [{ id: String(a._id), title: a.title || r.name, imageUrl: imageUrl(a.imagePublicId ?? r.coverPublicId, 900), restaurantSlug: r.slug, sponsored: true }] : []; });
+        if (banners.length) out.push({ type: s.type, title: s.title, banners });
+      } else if (s.type === 'FEATURED_DISHES') {
+        const ads = await this.growth.activeAds('FEATURED_PRODUCT');
+        const items: unknown[] = [];
+        for (const a of ads.slice(0, 10)) {
+          try { const p = await this.product(a.productId!); items.push({ ...p, sponsored: true }); } catch { /* plat ou restaurant indisponible : ignoré */ }
+        }
+        if (items.length) out.push({ type: s.type, title: s.title, dishes: items });
+      } else {
+        const sort = s.type === 'NEW_RESTAURANTS' ? 'new' : 'popular';
+        let restaurants = await this.listRestaurants({ sort, limit: 12 });
+        if (s.type === 'RECOMMENDED_RESTAURANTS') restaurants = restaurants.filter((r) => s.restaurantIds.some((id) => String(id) === r.id));
+        if (s.type === 'PROMOTIONS') {
+          const withPromo: typeof restaurants = [];
+          for (const r of restaurants) if ((await this.promotions.activeFor(r.id)).length) withPromo.push(r);
+          restaurants = withPromo;
+        }
+        if (restaurants.length) out.push({ type: s.type, title: s.title, restaurants });
+      }
+    }
+    return { sections: out, configured: sections.length > 0 };
   }
 }

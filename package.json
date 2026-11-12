@@ -18,6 +18,7 @@
     "create-superadmin": "npm run create-superadmin -w @plateforme/api --"
   },
   "overrides": {
-    "postcss": "8.5.32"
+    "postcss": "8.5.32",
+    "uuid": "11.1.1"
   }
 }

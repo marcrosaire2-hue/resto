@@ -2,7 +2,7 @@
 
 > Nom commercial à définir (décision D5).
 
-**Statut : phase 4 (livreurs et opérations) livrée — voir le journal dans le plan.** Voir le [tableau de suivi](docs/06-plan-de-realisation.md#63-tableau-de-suivi-des-fonctionnalités).
+**Statut : phases 5 (finances, Mobile Money FedaPay) et 6 (administration et commercial) livrées — voir le journal dans le plan.** Voir le [tableau de suivi](docs/06-plan-de-realisation.md#63-tableau-de-suivi-des-fonctionnalités).
 
 ## Stack
 - `apps/api` : NestJS 11, Mongoose 8, **MongoDB Atlas** (replica set), sessions par cookie httpOnly, CSRF, Argon2id, permissions par rôle, journal d'audit.
@@ -24,7 +24,7 @@ Prérequis : Node.js 22 ou plus récent.
 
 ## Vérifications
 - `npm run typecheck` : types de tous les paquets.
-- `npm test` : 124 tests (contrats, plus API sur un vrai MongoDB en mémoire ; Atlas n'est jamais touché).
+- `npm test` : 151 tests (contrats, plus API sur un vrai MongoDB en mémoire ; Atlas n'est jamais touché).
 - `npm run build` : build de production.
 - La CI (`.github/workflows/ci.yml`) exécute ces étapes avec `npm audit`.
 
@@ -37,9 +37,9 @@ Prérequis : Node.js 22 ou plus récent.
 | `/recherche` | — | API (restaurants, plats, tri, état vide) |
 | `/restaurants/[slug]` | Maquette 2 | API (vitrine publiée) |
 | `/plats/[id]` | Maquette 1, écran 3 + allergènes | API (variantes, suppléments, prix calculé) |
-| `/panier`, `/paiement` | Maquette 3 | API : panier serveur, devis, commande (espèces) |
+| `/panier`, `/paiement` | Maquette 3 | API : panier serveur, devis, code promo, espèces ou Mobile Money (FedaPay) |
 | `/commandes`, `/commandes/[id]` | Maquette 3 « Order details » | API : suivi en temps réel |
-| `/compte/adresses`, `/notifications` | — | API |
+| `/compte/adresses`, `/notifications`, `/aide` | — | API (assistance) |
 | `/inscription`, `/connexion`, `/compte`, `/devenir-partenaire` | Style maquette 1 | API |
 
 ### Professionnels (ordinateur et mobile)
@@ -48,11 +48,16 @@ Prérequis : Node.js 22 ou plus récent.
 | `/livreur`, `/livreur/inscription` | Application livreur (mobile) |
 | `/operations` | Opérations : dispatch, commandes, carte, incidents |
 | `/cuisine/[id]` | Écran cuisine (tablette) |
-| `/pro`, `/pro/[id]` | Restaurant : tableau de bord, commandes en direct, promotions, vue d'ensemble, profil et vitrine (aperçu, publication), horaires et zones, menu et plats, personnel |
-| `/admin` | Plateforme : candidatures, restaurants et commissions, livreurs, zones et frais, catégories, paramètres |
+| `/pro`, `/pro/[id]` | Restaurant : tableau de bord, commandes en direct, promotions, avis, finances (exports), profil et vitrine, horaires et zones, menu et plats, personnel |
+| `/admin` | Plateforme : vue d'ensemble, finances, restaurants, livreurs et performance, clients, assistance, avis, commercial (coupons, abonnements, publicités, accueil), zones, catégories, paramètres, personnel, journal d'audit |
 
 ### Données de démonstration
 `npm run seed:demo -w @plateforme/api -- --owner-phone <numéro d'un compte existant>` crée 4 restaurants **Démo** (mention visible à l'écran) avec leurs photos sur Cloudinary ; `-- --reset` les supprime. Refusé en production. Les photos proviennent des maquettes et doivent être remplacées avant la mise en ligne.
+
+## Paiement Mobile Money (FedaPay)
+- Renseigner dans `apps/api/.env` : `FEDAPAY_ENV` (`sandbox` ou `live`), `FEDAPAY_SECRET_KEY` et, obligatoire en production, `FEDAPAY_WEBHOOK_SECRET`. Jamais dans le code.
+- Dans le tableau de bord FedaPay, déclarer le webhook `https://<domaine>/api/payments/fedapay/webhook`.
+- Sans clé, le Mobile Money n'apparaît pas. Une commande n'est transmise au restaurant qu'après confirmation vérifiée auprès de FedaPay.
 
 ## Production
 `infra/` contient les Dockerfiles, `docker-compose.yml`, le Caddyfile (HTTPS) et `mongo/init-app-user.js`. Ce dernier crée un utilisateur MongoDB à privilèges minimaux, sans droit de modification sur le journal d'audit.

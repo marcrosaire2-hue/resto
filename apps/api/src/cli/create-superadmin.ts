@@ -6,12 +6,34 @@
  *   (compile d’abord l’API : la DI de NestJS exige les métadonnées émises par tsc)
  */
 import 'reflect-metadata';
-import { createInterface } from 'node:readline/promises';
 import { NestFactory } from '@nestjs/core';
 import { normalizePhone, passwordSchema } from '@plateforme/contracts';
 import { AppModule } from '../app.module';
 import { PlatformStaffService } from '../modules/platform-staff/platform-staff.service';
 import { UsersService } from '../modules/users/users.service';
+
+/** Saisie masquée : rien n'est affiché à l'écran pendant la frappe. */
+function askHidden(prompt: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const stdin = process.stdin;
+    if (!stdin.isTTY) return reject(new Error('Saisie interactive impossible : utilisez la variable SUPERADMIN_PASSWORD.'));
+    process.stdout.write(prompt);
+    let value = '';
+    stdin.setRawMode(true);
+    stdin.resume();
+    stdin.setEncoding('utf8');
+    const onData = (ch: string) => {
+      for (const c of ch) {
+        if (c === '\r' || c === '\n') { done(); return resolve(value); }
+        if (c === '\u0003') { done(); return reject(new Error('Annulé.')); }
+        if (c === '\u007f' || c === '\b') value = value.slice(0, -1);
+        else value += c;
+      }
+    };
+    const done = () => { stdin.setRawMode(false); stdin.pause(); stdin.off('data', onData); process.stdout.write('\n'); };
+    stdin.on('data', onData);
+  });
+}
 
 function arg(name: string) {
   const i = process.argv.indexOf(`--${name}`);
@@ -33,9 +55,9 @@ async function main() {
     if (!user) {
       let password = process.env.SUPERADMIN_PASSWORD;
       if (!password) {
-        const rl = createInterface({ input: process.stdin, output: process.stdout });
-        password = await rl.question('Mot de passe du super-administrateur : ');
-        rl.close();
+        password = await askHidden('Mot de passe du super-administrateur (10 caractères minimum, non affiché) : ');
+        const again = await askHidden('Confirmez le mot de passe : ');
+        if (again !== password) throw new Error('Les deux saisies ne correspondent pas.');
       }
       const p = passwordSchema.safeParse(password);
       if (!p.success) throw new Error(p.error.issues[0].message);

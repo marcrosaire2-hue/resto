@@ -23,11 +23,22 @@ const optionalEmail = z
   .optional()
   .transform((v) => (v ? v.toLowerCase() : undefined));
 
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email('Adresse e-mail invalide.')).pipe(z.string().max(254));
+/** Code temporaire à 6 chiffres envoyé par e-mail. */
+export const emailCodeSchema = z.string().trim().regex(/^\d{6}$/, 'Le code contient 6 chiffres.');
+export const EMAIL_CODE_PURPOSES = ['REGISTER', 'RESET', 'CHANGE_PASSWORD'] as const;
+export type EmailCodePurpose = (typeof EMAIL_CODE_PURPOSES)[number];
+
+/** Demande d'un code (inscription ou mot de passe oublié). Le changement de mot de passe connecté a sa propre route. */
+export const requestEmailCodeSchema = z.object({ email: emailSchema, purpose: z.enum(['REGISTER', 'RESET']) });
+
+/** Inscription : l'adresse e-mail est obligatoire et vérifiée par un code avant la création du compte. */
 export const registerSchema = z
   .object({
     fullName: z.string().trim().min(2, 'Nom complet requis.').max(120),
     phone: phoneSchema,
-    email: optionalEmail,
+    email: emailSchema,
+    code: emailCodeSchema,
     password: passwordSchema,
     passwordConfirm: z.string(),
   })
@@ -45,13 +56,20 @@ export type LoginInput = z.input<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({ identifier: z.string().trim().min(3) });
 
+/** Réinitialisation par code reçu par e-mail. */
+export const resetWithCodeSchema = z
+  .object({ email: emailSchema, code: emailCodeSchema, password: passwordSchema, passwordConfirm: z.string() })
+  .refine((d) => d.password === d.passwordConfirm, { path: ['passwordConfirm'], message: 'Les mots de passe ne correspondent pas.' });
+
 export const resetPasswordSchema = z
   .object({ token: z.string().min(20), password: passwordSchema, passwordConfirm: z.string() })
   .refine((d) => d.password === d.passwordConfirm, { path: ['passwordConfirm'], message: 'Les mots de passe ne correspondent pas.' });
 
+/** Changement de mot de passe connecté : code reçu par e-mail, ou mot de passe actuel pour les comptes sans e-mail. */
 export const changePasswordSchema = z
-  .object({ currentPassword: z.string().min(1), password: passwordSchema, passwordConfirm: z.string() })
-  .refine((d) => d.password === d.passwordConfirm, { path: ['passwordConfirm'], message: 'Les mots de passe ne correspondent pas.' });
+  .object({ code: emailCodeSchema.optional(), currentPassword: z.string().min(1).optional(), password: passwordSchema, passwordConfirm: z.string() })
+  .refine((d) => d.password === d.passwordConfirm, { path: ['passwordConfirm'], message: 'Les mots de passe ne correspondent pas.' })
+  .refine((d) => !!d.code || !!d.currentPassword, { path: ['code'], message: 'Saisissez le code reçu par e-mail.' });
 
 export const updateProfileSchema = z.object({
   fullName: z.string().trim().min(2).max(120).optional(),

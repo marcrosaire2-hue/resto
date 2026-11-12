@@ -15,6 +15,7 @@ import { RestaurantOpsService } from './restaurant-ops.service';
 
 const addItemSchema = z.object({ item: cartItemSchema, replace: z.boolean().default(false) });
 const qtySchema = z.object({ key: z.string().min(1).max(600), qty: z.number().int().min(0).max(99) });
+const couponBody = z.object({ code: z.string().trim().min(3).max(20) });
 const reasonSchema = z.object({ reason: z.string().trim().min(3, 'Motif requis.').max(300) });
 
 @ApiTags('client')
@@ -41,6 +42,8 @@ export class CustomerOrdersController {
   @Post('cart/items') @HttpCode(204) addItem(@CurrentAuth() a: AuthContext, @Body(new ZodPipe(addItemSchema)) b: z.output<typeof addItemSchema>) { return this.cart.add(a.userId, b.item, b.replace); }
   @Patch('cart/items') @HttpCode(204) setQty(@CurrentAuth() a: AuthContext, @Body(new ZodPipe(qtySchema)) b: z.output<typeof qtySchema>) { return this.cart.setQty(a.userId, b.key, b.qty); }
   @Delete('cart') @HttpCode(204) clearCart(@CurrentAuth() a: AuthContext) { return this.cart.clear(a.userId); }
+  @Put('cart/coupon') @HttpCode(204) setCoupon(@CurrentAuth() a: AuthContext, @Body(new ZodPipe(couponBody)) b: z.output<typeof couponBody>) { return this.cart.setCoupon(a.userId, b.code); }
+  @Delete('cart/coupon') @HttpCode(204) removeCoupon(@CurrentAuth() a: AuthContext) { return this.cart.setCoupon(a.userId, null); }
 
   // ----- Commandes -----
   @Throttle({ default: { limit: 20, ttl: 60_000 } })

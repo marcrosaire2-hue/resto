@@ -8,7 +8,7 @@ import { env } from './common/env';
 
 async function main() {
   const e = env();
-  const app = configureApp(await NestFactory.create(AppModule, { bufferLogs: false }));
+  const app = configureApp(await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true }));
   if (e.NODE_ENV !== 'production') {
     const doc = SwaggerModule.createDocument(
       app,

@@ -59,3 +59,37 @@ export async function marketplace(t: TestEnv) {
 
 export type Market = Awaited<ReturnType<typeof marketplace>>;
 export type { Client };
+
+/** Livreur validé et en ligne, plus livraison complète d'une commande (scénario réel, sans raccourci). */
+export async function delivery(t: TestEnv, m: Market) {
+  const admin = m.admin;
+  await admin.put('/api/admin/settings/couriers.cash_limit_fcfa', { value: 500_000 }).expect(200); // valeurs de test
+  await admin.put('/api/admin/settings/couriers.offer_expiry_seconds', { value: 120 }).expect(200);
+  const ops = await platformUser(t.app, 'operations_manager');
+
+  async function courier(name: string) {
+    const u = await registeredClient(t.app, name);
+    const folder = `plateforme/test/users/${u.userId}/courier`;
+    const r = await u.client.post('/api/courier/application', {
+      vehicleType: 'MOTO', plate: 'AB 1234', payout: { provider: 'MTN_MOMO', number: u.phone },
+      documents: [{ type: 'ID_CARD', publicId: `${folder}/cni` }, { type: 'DRIVING_LICENSE', publicId: `${folder}/permis` }],
+    });
+    expect(r.status).toBe(201);
+    await admin.post(`/api/admin/couriers/${r.body.id}/review`, { decision: 'approve' }).expect(201);
+    await u.client.post('/api/courier/online', { online: true }).expect(201);
+    return { ...u, courierId: r.body.id as string };
+  }
+
+  async function deliver(R: { rid: string; owner: { client: Client } }, c: Awaited<ReturnType<Market['customer']>>, orderId: string, L: Awaited<ReturnType<typeof courier>>) {
+    for (const s of ['accept', 'prepare', 'ready', 'request-courier']) await R.owner.client.post(`/api/restaurants/${R.rid}/orders/${orderId}/${s}`).expect(201);
+    await ops.client.post(`/api/ops/orders/${orderId}/assign`, { courierId: L.courierId }).expect(201);
+    const active = await L.client.get('/api/courier/active');
+    const did = active.body.id as string;
+    for (const s of ['arrived-pickup', 'picked-up', 'arrived-dropoff']) await L.client.post(`/api/courier/deliveries/${did}/${s}`).expect(201);
+    const code = (await c.client.get(`/api/orders/${orderId}`)).body.deliveryCode as string;
+    await L.client.post(`/api/courier/deliveries/${did}/deliver`, { code }).expect(201);
+    return (await c.client.get(`/api/orders/${orderId}`)).body as { total: number; status: string };
+  }
+
+  return { ops, courier, deliver };
+}

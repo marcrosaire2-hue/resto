@@ -17,6 +17,23 @@ const schema = z
     CLOUDINARY_API_KEY: z.string().optional(),
     CLOUDINARY_API_SECRET: z.string().optional(),
     MEDIA_FOLDER_PREFIX: z.string().regex(/^[a-z0-9_-]+$/).default('plateforme'),
+    /** FedaPay (Mobile Money). Sans clé secrète, le paiement en ligne est indisponible et masqué. */
+    FEDAPAY_ENV: z.enum(['sandbox', 'live']).default('sandbox'),
+    FEDAPAY_SECRET_KEY: z.string().optional(),
+    FEDAPAY_PUBLIC_KEY: z.string().optional(),
+    FEDAPAY_WEBHOOK_SECRET: z.string().optional(),
+    /** Brevo (e-mails transactionnels : codes de vérification). */
+    BREVO_API_KEY: z.string().optional(),
+    MAIL_FROM_EMAIL: z.string().optional(),
+    MAIL_FROM_NAME: z.string().default('Marketplace Cotonou'),
+    /** Réservé aux tests (serveur Brevo de test local). */
+    BREVO_API_URL: z.url().optional(),
+    /** Réservé aux tests (serveur FedaPay de test local). */
+    FEDAPAY_API_URL: z.url().optional(),
+  })
+  .refine((e) => !e.FEDAPAY_SECRET_KEY || e.FEDAPAY_SECRET_KEY.startsWith(`sk_${e.FEDAPAY_ENV}_`) || !!e.FEDAPAY_API_URL, {
+    message: 'La clé FedaPay ne correspond pas à FEDAPAY_ENV (sk_sandbox_… ou sk_live_…)',
+    path: ['FEDAPAY_SECRET_KEY'],
   })
   .refine((e) => e.NODE_ENV !== 'production' || e.COOKIE_SECURE, {
     message: 'COOKIE_SECURE doit valoir true en production',

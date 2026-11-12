@@ -1,9 +1,11 @@
+import { FedapayClient } from '../payments/fedapay.client';
 import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'node:crypto';
 import { Connection, Model, Types } from 'mongoose';
 import { z } from 'zod';
-import { bestPromotion, checkoutSchema, computeSplit, computeUnitPrice, isOpenAt, Quote, QuoteLine } from '@plateforme/contracts';
+import { bestPromotion, checkoutSchema, computeSplit, computeUnitPrice, couponDiscount, isOpenAt, Quote, QuoteLine } from '@plateforme/contracts';
+import { Coupon, CouponRedemption } from '../growth/growth.schemas';
 import { unprocessable } from '../../common/errors';
 import { CommercialModuleRef } from './refs';
 import { AddressesService } from '../customers/addresses.service';
@@ -28,6 +30,7 @@ interface QuoteContext {
   finance?: { commissionRateBps: number; commissionAmount: number; restaurantNet: number; courierPay: number; contractId: string; feeRuleId: string; fromZoneId: string; toZoneId: string };
   address?: Awaited<ReturnType<AddressesService['get']>> & { place: NonNullable<Awaited<ReturnType<GeoService['resolveNeighborhood']>>> };
   responseMinutes?: number;
+  couponId?: Types.ObjectId | null;
   lineDetails: { productId: Types.ObjectId; description: string; selection: unknown; promotionId: string | null }[];
 }
 
@@ -50,13 +53,29 @@ export class CheckoutService {
     private readonly settings: SettingsService,
     private readonly refs: CommercialModuleRef,
     private readonly events: OrderEventsService,
+    private readonly fedapay: FedapayClient,
     private readonly promotions: PromotionsService,
+    @InjectModel(Coupon.name) private readonly coupons: Model<Coupon>,
+    @InjectModel(CouponRedemption.name) private readonly redemptions: Model<CouponRedemption>,
   ) {}
+
+  /** Coupon de la plateforme : vérifié côté serveur (dates, restaurant, minimum, limites). */
+  private async evaluateCoupon(code: string, userId: string, restaurantId: Types.ObjectId, base: number) {
+    const c = await this.coupons.findOne({ code }).lean();
+    const now = new Date();
+    if (!c || !c.active || c.startsAt > now || c.endsAt <= now) return { coupon: null, discount: 0, message: 'Ce code promo n’est pas valable.' };
+    if (c.restaurantIds.length && !c.restaurantIds.some((r) => r.equals(restaurantId))) return { coupon: null, discount: 0, message: 'Ce code n’est pas valable pour ce restaurant.' };
+    if (base < c.minItemsSubtotal) return { coupon: null, discount: 0, message: `Valable dès ${c.minItemsSubtotal} FCFA d’achats.` };
+    if (c.maxUses !== null && c.uses >= c.maxUses) return { coupon: null, discount: 0, message: 'Ce code a atteint son nombre maximal d’utilisations.' };
+    const used = await this.redemptions.countDocuments({ couponId: c._id, userId: new Types.ObjectId(userId) });
+    if (used >= c.perUserLimit) return { coupon: null, discount: 0, message: 'Vous avez déjà utilisé ce code.' };
+    return { coupon: c, discount: couponDiscount(c, base), message: null };
+  }
 
   /** Devis calculé côté serveur à partir du panier serveur. C'est aussi la base de la création de commande. */
   async quote(userId: string, addressId?: string): Promise<QuoteContext> {
     const blocking: Quote['blocking'] = [];
-    const empty = (): QuoteContext => ({ quote: { restaurant: null, lines: [], itemsSubtotal: 0, restaurantDiscount: 0, deliveryFee: null, serviceFee: null, total: null, blocking }, restaurant: null, lineDetails: [] });
+    const empty = (): QuoteContext => ({ quote: { restaurant: null, lines: [], itemsSubtotal: 0, restaurantDiscount: 0, platformDiscount: 0, coupon: null, deliveryFee: null, serviceFee: null, total: null, blocking }, restaurant: null, lineDetails: [] });
     const cart = await this.cart.raw(userId);
     if (!cart?.restaurantId || cart.items.length === 0) {
       blocking.push({ code: 'EMPTY_CART', message: 'Votre panier est vide.' });
@@ -112,7 +131,16 @@ export class CheckoutService {
       lineDetails[i].promotionId = best.promo.id;
       restaurantDiscount += best.discount * l.qty;
     });
-    const ctx: QuoteContext = { quote: { restaurant: { id: String(r._id), slug: r.slug, name: r.name }, lines, itemsSubtotal, restaurantDiscount, deliveryFee: null, serviceFee: null, total: null, blocking }, restaurant: r, lineDetails };
+    let platformDiscount = 0;
+    let couponInfo: Quote['coupon'] = null;
+    let couponId: Types.ObjectId | null = null;
+    if (cart.couponCode) {
+      const ev = await this.evaluateCoupon(cart.couponCode, userId, r._id, itemsSubtotal - restaurantDiscount);
+      platformDiscount = ev.discount;
+      couponId = ev.coupon?._id ?? null;
+      couponInfo = { code: cart.couponCode, applied: !!ev.coupon, message: ev.message };
+    }
+    const ctx: QuoteContext = { couponId, quote: { restaurant: { id: String(r._id), slug: r.slug, name: r.name }, lines, itemsSubtotal, restaurantDiscount, platformDiscount, coupon: couponInfo, deliveryFee: null, serviceFee: null, total: null, blocking }, restaurant: r, lineDetails };
 
     const [serviceFee, responseMinutes, contract] = await Promise.all([
       this.settings.get('orders.service_fee_fcfa'),
@@ -150,7 +178,7 @@ export class CheckoutService {
     }
     ctx.quote.deliveryFee = rule.customerFee;
     if (serviceFee !== null && contract) {
-      const split = computeSplit({ itemsSubtotal, restaurantDiscount, platformDiscount: 0, deliveryFee: rule.customerFee, courierPay: rule.courierPay, serviceFee, commissionRateBps: contract.commissionRateBps });
+      const split = computeSplit({ itemsSubtotal, restaurantDiscount, platformDiscount, deliveryFee: rule.customerFee, courierPay: rule.courierPay, serviceFee, commissionRateBps: contract.commissionRateBps });
       ctx.quote.total = split.total;
       ctx.finance = {
         commissionRateBps: contract.commissionRateBps, commissionAmount: split.commission, restaurantNet: split.restaurantNet, courierPay: rule.courierPay,
@@ -186,6 +214,9 @@ export class CheckoutService {
     if (ctx.quote.total !== input.expectedTotal) {
       throw new HttpException({ statusCode: 409, error: 'PRICE_CHANGED', message: 'Le montant a changé depuis votre consultation. Vérifiez le nouveau total.', quote: ctx.quote }, 409);
     }
+    const online = input.paymentMethod === 'MOBILE_MONEY';
+    if (online && !this.fedapay.enabled()) throw unprocessable('PAYMENT_UNAVAILABLE', 'Le paiement Mobile Money n’est pas disponible pour le moment. Choisissez le paiement en espèces.');
+    const initialStatus = online ? 'AWAITING_PAYMENT' : 'PENDING';
     const r = ctx.restaurant!;
     const user = await this.users.findById(userId).lean();
     const number = await this.uniqueNumber();
@@ -196,18 +227,28 @@ export class CheckoutService {
     try {
       await session.withTransaction(async () => {
         const [o] = await this.orders.create([{
-          number, customerId: new Types.ObjectId(userId), restaurantId: r._id, status: 'PENDING', paymentMethod: input.paymentMethod,
+          number, customerId: new Types.ObjectId(userId), restaurantId: r._id, status: initialStatus, paymentMethod: input.paymentMethod,
           paymentStatus: 'PENDING', idempotencyKey: input.idempotencyKey,
           customerSnapshot: { name: user!.fullName, phone: user!.phone },
           addressSnapshot: { label: a.label, neighborhoodId: a.place.id, neighborhood: a.place.name, commune: a.place.communeName, city: a.place.cityName, streetLandmark: a.streetLandmark, instructions: a.instructions, lat: a.lat, lng: a.lng },
           restaurantSnapshot: { name: r.name, slug: r.slug, phone: r.phone, address: r.address },
           items: ctx.quote.lines.map((l, i) => ({ productId: ctx.lineDetails[i].productId, name: l.name, description: ctx.lineDetails[i].description, imageUrl: l.imageUrl, unitPrice: l.unitPrice, qty: l.qty, lineTotal: l.lineTotal, unitDiscount: l.unitDiscount, promotionId: ctx.lineDetails[i].promotionId, promotionName: l.promotionName, optionLabels: l.optionLabels, selection: ctx.lineDetails[i].selection, instructions: l.instructions })),
-          amounts: { itemsSubtotal: ctx.quote.itemsSubtotal, restaurantDiscount: ctx.quote.restaurantDiscount, platformDiscount: 0, deliveryFee: ctx.quote.deliveryFee!, serviceFee: ctx.quote.serviceFee!, total: ctx.quote.total! },
+          amounts: { itemsSubtotal: ctx.quote.itemsSubtotal, restaurantDiscount: ctx.quote.restaurantDiscount, platformDiscount: ctx.quote.platformDiscount, deliveryFee: ctx.quote.deliveryFee!, serviceFee: ctx.quote.serviceFee!, total: ctx.quote.total! },
           finance: ctx.finance!, deliveryCode, customerNote: input.customerNote,
-          acceptDeadlineAt: new Date(Date.now() + ctx.responseMinutes! * 60_000),
+          // Paiement en ligne : le délai de réponse du restaurant ne court qu'après confirmation du paiement.
+          acceptDeadlineAt: online ? null : new Date(Date.now() + ctx.responseMinutes! * 60_000),
         }], { session });
         orderId = String(o._id);
-        await this.history.create([{ orderId: o._id, fromStatus: null, toStatus: 'PENDING', actorUserId: new Types.ObjectId(userId), actorKind: 'customer' }], { session });
+        if (ctx.couponId && ctx.quote.platformDiscount > 0) {
+          // Réservation atomique d'une utilisation du coupon (limite globale respectée même en cas de concurrence).
+          const claimed = await this.coupons.updateOne(
+            { _id: ctx.couponId, active: true, $or: [{ maxUses: null }, { $expr: { $lt: ['$uses', '$maxUses'] } }] },
+            { $inc: { uses: 1 } }, { session },
+          );
+          if (claimed.modifiedCount !== 1) throw new HttpException({ statusCode: 409, error: 'COUPON_EXHAUSTED', message: 'Ce code promo vient d’atteindre sa limite. Retirez-le pour continuer.' }, 409);
+          await this.redemptions.create([{ couponId: ctx.couponId, userId: new Types.ObjectId(userId), orderId: o._id, discount: ctx.quote.platformDiscount }], { session });
+        }
+        await this.history.create([{ orderId: o._id, fromStatus: null, toStatus: initialStatus, actorUserId: new Types.ObjectId(userId), actorKind: 'customer' }], { session });
         await this.cart.clear(userId);
       });
     } catch (e) {
@@ -220,7 +261,8 @@ export class CheckoutService {
     } finally {
       await session.endSession();
     }
-    await this.events.created(orderId).catch((err) => this.logger.error(`Notification de création échouée : ${(err as Error).message}`));
-    return { orderId, number, duplicate: false };
+    // En paiement en ligne, le restaurant n'est prévenu qu'à la confirmation du paiement (PaymentsService).
+    if (!online) await this.events.created(orderId).catch((err) => this.logger.error(`Notification de création échouée : ${(err as Error).message}`));
+    return { orderId, number, duplicate: false, paymentRequired: online };
   }
 }

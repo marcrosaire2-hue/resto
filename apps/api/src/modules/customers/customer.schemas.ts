@@ -31,5 +31,6 @@ export class Cart {
   @Prop({ type: Types.ObjectId, required: true, unique: true }) userId: Types.ObjectId;
   @Prop({ type: Types.ObjectId, default: null }) restaurantId: Types.ObjectId | null;
   @Prop({ type: [CartItem], default: [] }) items: CartItem[];
+  @Prop({ type: String, default: null }) couponCode: string | null;
 }
 export const CartSchema = SchemaFactory.createForClass(Cart);

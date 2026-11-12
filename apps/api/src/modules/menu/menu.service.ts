@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service';
 import { imageUrl } from '../media/cloudinary';
 import { assertImageFolder, MediaService } from '../media/media.service';
 import { MenuCategory, Product, ProductDocument } from './menu.schemas';
+import { GrowthService } from '../growth/growth.service';
 
 interface Meta { ip: string | null; userAgent: string | null }
 type ProductInput = z.output<typeof productSchema>;
@@ -21,6 +22,7 @@ export class MenuService {
     @InjectModel(Product.name) private readonly products: Model<Product>,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly growth: GrowthService,
   ) {}
 
   static toDto(p: Product & { _id: Types.ObjectId }) {
@@ -111,6 +113,10 @@ export class MenuService {
   async createProduct(restaurantId: string, input: ProductInput, actor: string, meta: Meta) {
     const data = await this.normalize(restaurantId, input, actor);
     const rid = new Types.ObjectId(restaurantId);
+    const limit = await this.growth.productLimit(rid);
+    if (limit !== null && (await this.products.countDocuments({ restaurantId: rid, status: { $ne: 'ARCHIVED' } })) >= limit) {
+      throw unprocessable('PLAN_LIMIT', `Votre formule permet ${limit} plats. Archivez un plat ou changez de formule.`);
+    }
     const last = await this.products.findOne({ restaurantId: rid, menuCategoryId: data.menuCategoryId }).sort({ sort: -1 }).lean();
     const p = await this.products.create({ restaurantId: rid, ...data, sort: (last?.sort ?? -1) + 1, status: 'DRAFT' });
     await this.audit.record({ actorUserId: actor, scope: 'restaurant', restaurantId, action: 'menu.product_create', entity: 'product', entityId: String(p._id), after: { name: data.name, basePrice: data.basePrice }, ...meta });

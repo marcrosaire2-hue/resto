@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { changePasswordSchema, PERMISSIONS, PLATFORM_ROLES, RESTAURANT_ROLES, updateProfileSchema, type MeResponse, type Permission } from '@plateforme/contracts';
+import { CodeInput, ResendButton } from '@/components/code-input';
 import { CircleButton, MobileScreen } from '@/components/mobile';
 import { Alert, Badge, Button, Card, Field, IconArrowLeft, IconLogout, Spinner } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -12,7 +13,7 @@ const roleLabel = (code: string) =>
   [...RESTAURANT_ROLES, ...PLATFORM_ROLES].find((r) => r.code === code)?.label ?? code;
 
 function ProfileForm({ me, onSaved }: { me: MeResponse; onSaved: (m: MeResponse) => void }) {
-  const [values, setValues] = useState({ fullName: me.fullName, email: me.email ?? '' });
+  const [values, setValues] = useState({ fullName: me.fullName });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,27 +38,35 @@ function ProfileForm({ me, onSaved }: { me: MeResponse; onSaved: (m: MeResponse)
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
       <Field label="Nom complet" value={values.fullName} onChange={(e) => setValues({ ...values, fullName: e.target.value })} error={errors.fullName} />
       <Field label="Téléphone" value={me.phone} disabled hint={me.phoneVerified ? 'Numéro vérifié.' : 'La modification du numéro passera par une vérification par SMS (bientôt disponible).'} />
-      <Field label="E-mail (facultatif)" type="email" value={values.email} onChange={(e) => setValues({ ...values, email: e.target.value })} error={errors.email} />
+      <Field label="E-mail" type="email" value={me.email ?? ''} disabled hint={me.email ? 'Adresse utilisée pour vos codes de sécurité. Pour la changer, contactez l’assistance.' : 'Aucune adresse e-mail sur ce compte.'} />
       <Button type="submit" loading={loading}>Enregistrer</Button>
     </form>
   );
 }
 
-function PasswordForm() {
-  const empty = { currentPassword: '', password: '', passwordConfirm: '' };
+function PasswordForm({ hasEmail }: { hasEmail: boolean }) {
+  const empty = { currentPassword: '', code: '', password: '', passwordConfirm: '' };
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  async function askCode() {
+    setMsg(null);
+    try { const r = await api<{ sentTo: string }>('/users/me/password/code', { method: 'POST' }); setSentTo(r.sentTo); return true; }
+    catch (err) { setMsg({ tone: 'danger', text: err instanceof ApiError ? err.message : 'Erreur.' }); return false; }
+  }
   const [values, setValues] = useState(empty);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [msg, setMsg] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    const v = validate(changePasswordSchema, values);
+    const body = hasEmail ? { code: values.code, password: values.password, passwordConfirm: values.passwordConfirm } : { currentPassword: values.currentPassword, password: values.password, passwordConfirm: values.passwordConfirm };
+    const v = validate(changePasswordSchema, body);
     if (!v.ok) return setErrors(v.errors);
     setErrors({});
     setLoading(true);
     try {
-      await api('/users/me/password', { method: 'POST', body: values });
+      await api('/users/me/password', { method: 'POST', body });
       setValues(empty);
+      setSentTo(null);
       setMsg({ tone: 'success', text: 'Mot de passe modifié. Vos autres sessions ont été fermées.' });
     } catch (err) {
       setMsg({ tone: 'danger', text: err instanceof ApiError ? err.message : 'Erreur.' });
@@ -68,13 +77,25 @@ function PasswordForm() {
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-4">
       {msg && <Alert tone={msg.tone}>{msg.text}</Alert>}
-      <Field label="Mot de passe actuel" type="password" autoComplete="current-password" value={values.currentPassword}
-        onChange={(e) => setValues({ ...values, currentPassword: e.target.value })} error={errors.currentPassword} />
+      {hasEmail && !sentTo ? (
+        <Button type="button" variant="secondary" onClick={() => void askCode()}>Recevoir un code par e-mail</Button>
+      ) : hasEmail ? (
+        <>
+          <p className="text-sm text-ink-muted">Code envoyé à {sentTo} (valable 10 minutes).</p>
+          <CodeInput value={values.code} onChange={(code) => setValues({ ...values, code })} error={errors.code} />
+          <ResendButton onResend={askCode} />
+        </>
+      ) : (
+        <Field label="Mot de passe actuel" type="password" autoComplete="current-password" value={values.currentPassword}
+          onChange={(e) => setValues({ ...values, currentPassword: e.target.value })} error={errors.currentPassword} />
+      )}
+      {(!hasEmail || sentTo) && <>
       <Field label="Nouveau mot de passe" type="password" autoComplete="new-password" value={values.password}
         onChange={(e) => setValues({ ...values, password: e.target.value })} error={errors.password} />
       <Field label="Confirmer" type="password" autoComplete="new-password" value={values.passwordConfirm}
         onChange={(e) => setValues({ ...values, passwordConfirm: e.target.value })} error={errors.passwordConfirm} />
       <Button type="submit" variant="secondary" loading={loading}>Changer le mot de passe</Button>
+      </>}
     </form>
   );
 }
@@ -161,6 +182,7 @@ export default function AccountPage() {
         <div className="grid grid-cols-2 gap-3">
           <a href="/commandes" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">🧾 Mes commandes</a>
           <a href="/compte/adresses" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">📍 Mes adresses</a>
+          <a href="/aide" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">💬 Aide</a>
         </div>
         <Card className="p-4">
           <h2 className="mb-4 font-bold">Informations personnelles</h2>
@@ -168,7 +190,7 @@ export default function AccountPage() {
         </Card>
         <Card className="p-4">
           <h2 className="mb-4 font-bold">Sécurité</h2>
-          <PasswordForm />
+          <PasswordForm hasEmail={!!me.email} />
         </Card>
         {me.restaurants.length === 0 && <a href="/devenir-partenaire" className="block text-center text-sm font-semibold text-brand">Vous êtes restaurateur ? Inscrivez votre établissement</a>}
         <a href="/livreur" className="block text-center text-sm font-semibold text-brand">Espace livreur</a>

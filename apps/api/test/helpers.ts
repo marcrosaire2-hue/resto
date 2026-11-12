@@ -1,3 +1,5 @@
+import { createServer, Server } from 'node:http';
+import { AddressInfo } from 'node:net';
 import 'reflect-metadata';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -17,6 +19,32 @@ export interface TestEnv {
   close: () => Promise<void>;
 }
 
+/* Double de test de l'API Brevo : capture les e-mails envoyés (jamais d'envoi réel en test). */
+export const sentMails: { to: string; subject: string; text: string }[] = [];
+let mailServer: Server | null = null;
+async function fakeBrevo() {
+  if (mailServer) return `http://127.0.0.1:${(mailServer.address() as AddressInfo).port}`;
+  mailServer = createServer((req, res) => {
+    let b = '';
+    req.on('data', (c) => (b += c));
+    req.on('end', () => {
+      const j = JSON.parse(b || '{}');
+      if (req.headers['api-key'] !== 'test-brevo-key') { res.writeHead(401); return res.end('{}'); }
+      sentMails.push({ to: j.to?.[0]?.email, subject: j.subject, text: j.textContent });
+      res.writeHead(201, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ messageId: `<${sentMails.length}@test>` }));
+    });
+  });
+  await new Promise<void>((ok) => mailServer!.listen(0, ok));
+  mailServer.unref();
+  return `http://127.0.0.1:${(mailServer.address() as AddressInfo).port}`;
+}
+/** Dernier code à 6 chiffres envoyé à une adresse. */
+export function lastCode(email: string) {
+  const m = [...sentMails].reverse().find((x) => x.to === email);
+  return m?.text.match(/\b(\d{6})\b/)?.[1] ?? null;
+}
+
 /** Démarre un vrai MongoDB (replica set en mémoire) et l'application complète. */
 export async function startApp(extraEnv: Record<string, string> = {}): Promise<TestEnv> {
   const replSet = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
@@ -28,11 +56,20 @@ export async function startApp(extraEnv: Record<string, string> = {}): Promise<T
     CLOUDINARY_CLOUD_NAME: '',
     CLOUDINARY_API_KEY: '',
     CLOUDINARY_API_SECRET: '',
+    // Jamais de clé de paiement réelle en test : FedaPay désactivé sauf serveur de test explicite.
+    FEDAPAY_ENV: 'sandbox',
+    FEDAPAY_SECRET_KEY: '',
+    FEDAPAY_PUBLIC_KEY: '',
+    FEDAPAY_WEBHOOK_SECRET: '',
+    BREVO_API_KEY: 'test-brevo-key',
+    MAIL_FROM_EMAIL: 'noreply@test.local',
+    BREVO_API_URL: await fakeBrevo(),
     ...extraEnv,
   });
+  if (!extraEnv.FEDAPAY_API_URL) delete process.env.FEDAPAY_API_URL;
   resetEnvCache();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-  const app = configureApp(moduleRef.createNestApplication());
+  const app = configureApp(moduleRef.createNestApplication({ rawBody: true }));
   await app.init();
   // Les index uniques doivent exister avant les tests de doublons.
   await Promise.all(Object.values(mongoose.connections.flatMap((c) => Object.values(c.models))).map((m) => m.syncIndexes()));
@@ -80,10 +117,13 @@ export class Client {
 /** Inscrit un utilisateur et renvoie un client connecté. */
 export async function registeredClient(app: INestApplication, name = 'Test Utilisateur') {
   const phone = nextPhone();
+  const email = `u${phone}@test.local`;
   const c = await new Client(app).init();
-  const r = await c.post('/api/auth/register', { fullName: name, phone, password: PASSWORD, passwordConfirm: PASSWORD });
+  const s = await c.post('/api/auth/email-code', { email, purpose: 'REGISTER' });
+  if (s.status !== 202) throw new Error(`Envoi du code échoué : ${s.status} ${JSON.stringify(s.body)}`);
+  const r = await c.post('/api/auth/register', { fullName: name, phone, email, code: lastCode(email), password: PASSWORD, passwordConfirm: PASSWORD });
   if (r.status !== 201) throw new Error(`Inscription échouée : ${r.status} ${JSON.stringify(r.body)}`);
-  return { client: c, phone, userId: r.body.id as string };
+  return { client: c, phone, email, userId: r.body.id as string };
 }
 
 export async function platformUser(app: INestApplication, roleCode: string) {

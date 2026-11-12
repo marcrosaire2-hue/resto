@@ -69,24 +69,24 @@ Les abonnements, publicités, la fidélité et l'affectation automatique viennen
 | F28 | Dispatch et réattribution | Opérations | F26 | ✅ | Affectation, offres avec expiration, une course = un livreur, réattribution, plafond d’espèces ; tests + navigateur | Claude | 2026-11-11 |
 | F29 | Carte opérationnelle | Opérations | F28 | ✅ | Leaflet/OpenStreetMap, positions réelles uniquement ; vérifiée au navigateur | Claude | 2026-11-11 |
 | F30 | Incidents et alertes de délai | Opérations | F28 | ✅ | Incidents (statut, responsable, historique, résolution obligatoire), alerte « prête sans livreur » ; tests API | Claude | 2026-11-11 |
-| F31 | Espèces des livreurs et reversements | Finances | F27 | ⬜ | — | — | — |
-| F32 | Versements aux restaurants et livreurs | Finances | F27 | ⬜ | — | — | — |
-| F33 | Remboursements | Finances | F27 | ⬜ | — | — | — |
-| F34 | Rapports et exports PDF/Excel | Finances | F27 | ⬜ | — | — | — |
-| F35 | Tableau de bord du super-admin | Admin | F27 | ⬜ | — | — | — |
-| F36 | Salariés de la plateforme | Admin | F04 | ⬜ | — | — | — |
-| F37 | Avis et modération | Client/Admin | F17 | ⬜ | — | — | — |
-| F38 | Coupons | Admin | F16 | ⬜ | — | — | — |
-| F39 | Abonnements et publicités | Admin | F35 | ⬜ | — | — | — |
-| F40 | Support (tickets) | Client/Admin | F04 | ⬜ | — | — | — |
-| F41 | Mobile Money | Paiements | F27, D2 | 🟥 | — | — | — |
+| F31 | Espèces des livreurs et reversements | Finances | F27 | ✅ | Reversement plafonné aux espèces détenues, reçu numéroté, écriture au grand livre ; écran Finances → Espèces ; tests API | Claude | 2026-11-12 |
+| F32 | Versements aux restaurants et livreurs | Finances | F27 | ✅ | Montant réservé, double validation (demandeur ≠ approbateur), exécution avec référence, notification ; tests API | Claude | 2026-11-12 |
+| F33 | Remboursements | Finances | F27 | ✅ | Uniquement si paiement réussi, plafonné, 1 ou 2 approbations selon un seuil configurable, imputation restaurant/plateforme ; tests API | Claude | 2026-11-12 |
+| F34 | Rapports et exports PDF/Excel | Finances | F27 | ✅ | Rapport plateforme et relevé restaurant (Excel, PDF), écran Finances du restaurant ; tests API | Claude | 2026-11-12 |
+| F35 | Tableau de bord du super-admin | Admin | F27 | ✅ | Volume, commissions, frais, remboursements, statuts, top restaurants, histogramme ; performance des livreurs ; tests API | Claude | 2026-11-12 |
+| F36 | Salariés de la plateforme | Admin | F04 | ✅ | Écran Personnel (rôles, désactivation) et journal d’audit en lecture seule ; suspension des clients avec révocation des sessions ; tests API | Claude | 2026-11-12 |
+| F37 | Avis et modération | Client/Admin | F17 | ✅ | Avis réservés aux commandes livrées, un par commande, réponse du restaurant, masquage motivé, note recalculée ; tests API | Claude | 2026-11-12 |
+| F38 | Coupons | Admin | F16 | ✅ | Codes financés par la plateforme, usage atomique, limite par client, restaurants ciblés ; champ au paiement ; tests API | Claude | 2026-11-12 |
+| F39 | Abonnements et publicités | Admin | F35 | ✅ | Formules avec limite de plats, campagnes « Sponsorisé » (tête de liste, bannière, plat), accueil administrable ; tests API | Claude | 2026-11-12 |
+| F40 | Support (tickets) | Client/Admin | F04 | ✅ | Page Aide (mobile), fil de messages, prise en charge, résolution, notifications ; tests API | Claude | 2026-11-12 |
+| F41 | Mobile Money | Paiements | F27, D2 | 🟨 | FedaPay (MTN, Moov) : commande en attente de paiement, validation après relecture chez FedaPay (webhook signé + vérification du montant) ; testé contre un double de l'API. Reste : essai réel en sandbox, secret de webhook | Claude | 2026-11-12 |
 | F42 | SMS, WhatsApp, e-mail, push | Notifications | F19, D3 | 🟥 | — | — | — |
 | F43 | Tests de charge et revue de sécurité | QA | toutes | ⬜ | — | — | — |
 | F44 | Documentation développeurs | Docs | toutes | ⬜ | — | — | — |
 | F45 | Manuels des salariés | Docs | toutes | ⬜ | — | — | — |
 | F46 | Mise en production | Ops | F43 | ⬜ | — | — | — |
 
-F41 et F42 sont 🟥 **bloquées** jusqu'à réception des accès prestataires (D2, D3).
+F42 est 🟥 **bloquée** jusqu'à réception des accès prestataires (D3). F41 (FedaPay) est 🟨 : intégrée, à valider en sandbox puis en réel.
 
 ### Journal de la phase 0 (2026-11-11)
 - MongoDB Atlas branché et vérifié (replica set détecté, transactions disponibles).
@@ -132,3 +132,12 @@ F41 et F42 sont 🟥 **bloquées** jusqu'à réception des accès prestataires (
 - Vérifié au navigateur (base locale) : dispatch → application livreur → mauvais code refusé → bon code → gains et espèces mis à jour ; carte.
 - Corrigé pendant la vérification : les rafraîchissements en direct effaçaient l'écran (et la saisie du code) — corrigé à la source pour toute l'application.
 - Paramètres à renseigner avant d'utiliser le dispatch : plafond d'espèces, durée des offres, délai d'alerte « prête sans livreur ».
+
+### Journal des phases 5 et 6 (2026-11-11 → 2026-11-12)
+- **Finances** : module `finance` (soldes, versements à double validation, reversements d'espèces avec reçu, remboursements vérifiés, rapports ExcelJS/PDFKit). Toutes les écritures passent par le grand livre, dans des transactions MongoDB.
+- **Mobile Money (FedaPay)** : module `payments`. Nouveau statut `AWAITING_PAYMENT` ; le restaurant ne reçoit la commande qu'après confirmation. Le webhook n'est qu'un signal : l'état est toujours relu via `GET /transactions/:id` et le montant comparé. Écritures `payment.received` (`clearing:provider:fedapay` / `liability:customer_prepayments`), soldées à la livraison. Moyen masqué sans clé. Les clés vivent uniquement dans `apps/api/.env` (jamais commité) ; les tests et la configuration locale désactivent les clés réelles.
+- **Commercial** : coupons (réservation atomique), formules et limite de plats, publicités sponsorisées, sections d'accueil.
+- **Avis, assistance, administration** : avis vérifiés et modération, tickets, tableau de bord, clients, performance des livreurs, personnel, journal d'audit.
+- **Interfaces** : `/admin` (vue d'ensemble, finances, clients, assistance, avis, commercial, personnel, journal, performance), `/pro/[id]/finances` et `/avis`, côté client : code promo et Mobile Money au paiement, paiement et avis sur la commande, page `/aide`, avis sur la vitrine, mention « Sponsorisé ».
+- **Vérifications** : 119 tests API + 32 tests de contrats ; vérification dans le navigateur sur la base locale (tableau de bord, finances équilibrées, reversement avec reçu, clients, commercial, journal, aide mobile).
+- **Reste à faire** : essai FedaPay en sandbox, secret de webhook, rapprochement quotidien automatisé avec les relevés FedaPay, expiration automatique des commandes non payées (paramètre à définir).
