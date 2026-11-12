@@ -24,9 +24,18 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": [
         "-c",
-        "MONGODB_URI='mongodb://127.0.0.1:27017/plateforme_local?replicaSet=rs0' npm run dev:api"
+        "MONGODB_URI='mongodb://127.0.0.1:27017/plateforme_local?replicaSet=rs0' FEDAPAY_SECRET_KEY='' FEDAPAY_WEBHOOK_SECRET='' npm run dev:api"
       ],
       "port": 4000
+    },
+    {
+      "name": "db",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev:db"
+      ],
+      "port": 27017
     }
   ]
 }

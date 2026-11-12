@@ -1,7 +1,9 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import type { PublicCuisine, PublicRestaurantCard } from '@plateforme/contracts';
+import type { PublicCuisine, PublicProduct, PublicRestaurantCard } from '@plateforme/contracts';
+
+interface HomeSection { type: string; title: string; banners?: { id: string; title: string; imageUrl: string | null; restaurantSlug: string }[]; dishes?: PublicProduct[] }
 import { FilterSheet, SortKey } from '@/components/client/filter-sheet';
 import { RestaurantCard } from '@/components/client/restaurant-card';
 import { ErrorBlock, LoadingBlock } from '@/components/client/states';
@@ -31,6 +33,10 @@ export default function HomePage() {
   const cuisines = useApi<PublicCuisine[]>('/catalog/cuisines');
   const params = new URLSearchParams({ sort, ...(debounced ? { q: debounced } : {}), ...(cuisine ? { cuisine } : {}), ...(openOnly ? { open: '1' } : {}) });
   const restaurants = useApi<PublicRestaurantCard[]>(`/catalog/restaurants?${params}`);
+  // Contenus sponsorisés administrés (bannières, plats à la une) : affichés seulement s'ils existent réellement.
+  const home = useApi<{ sections: HomeSection[] }>('/catalog/home');
+  const banners = home.data?.sections.find((x) => x.type === 'BANNERS');
+  const dishes = home.data?.sections.find((x) => x.type === 'FEATURED_DISHES');
   const notifs = useApi<{ unread: number }>(me ? '/notifications' : null);
   useLive(me ? { type: 'user', id: me.id } : null, ['notification.new'], notifs.reload, 60_000);
   const unread = notifs.data?.unread ?? 0;
@@ -70,6 +76,38 @@ export default function HomePage() {
             <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></svg>
           </button>
         </div>
+
+        {!debounced && banners?.banners?.length ? (
+          <section aria-label={banners.title} className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1">
+            {banners.banners.map((b) => (
+              <Link key={b.id} href={`/restaurants/${b.restaurantSlug}`} className="relative h-32 w-[85%] shrink-0 snap-start overflow-hidden rounded-[18px] bg-peach">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {b.imageUrl && <img src={b.imageUrl} alt="" className="h-full w-full object-cover" />}
+                <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink/70 to-transparent p-3 text-[15px] font-bold text-white">{b.title}</span>
+                <span className="absolute left-2 top-2 rounded-full bg-ink/75 px-2 py-0.5 text-[10px] font-semibold text-white">Sponsorisé</span>
+              </Link>
+            ))}
+          </section>
+        ) : null}
+
+        {!debounced && dishes?.dishes?.length ? (
+          <section className="rounded-[18px] bg-surface p-4">
+            <h2 className="text-[15px] font-bold">{dishes.title}</h2>
+            <div className="-mx-1 mt-3 flex gap-3 overflow-x-auto px-1 pb-1">
+              {dishes.dishes.map((d) => (
+                <Link key={d.id} href={`/plats/${d.id}`} className="w-36 shrink-0">
+                  <div className="relative h-24 overflow-hidden rounded-[12px] bg-peach">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {d.imageUrls[0] && <img src={d.imageUrls[0]} alt={d.name} className="h-full w-full object-cover" />}
+                    <span className="absolute left-1.5 top-1.5 rounded-full bg-ink/75 px-1.5 py-0.5 text-[9px] font-semibold text-white">Sponsorisé</span>
+                  </div>
+                  <p className="mt-1 truncate text-[13px] font-semibold">{d.name}</p>
+                  <p className="text-xs text-brand">{fcfa(d.basePrice)}</p>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {(cuisines.data?.length ?? 0) > 0 && (
           <section className="rounded-[18px] bg-peach-card p-4">

@@ -1,58 +1,55 @@
 # Session state (auto-saved — last known reality)
 
-_Updated: 2026-11-11 20:17:34_  ·  branch: `feat/phases-5-6-finances-admin`
+_Updated: 2026-11-12 05:27:25_  ·  branch: `feat/phases-5-6-finances-admin`
 
 ## Uncommitted changes
 ```
  M .anchor/session-state.md
- M apps/api/package.json
- M apps/api/src/app.module.ts
- M apps/api/src/modules/catalog/catalog.controller.ts
- M apps/api/src/modules/catalog/catalog.service.ts
- M apps/api/src/modules/customers/cart.service.ts
- M apps/api/src/modules/customers/customer.schemas.ts
- M apps/api/src/modules/ledger/ledger.service.ts
- M apps/api/src/modules/menu/menu.service.ts
- M apps/api/src/modules/orders/checkout.service.ts
- M apps/api/src/modules/orders/orders.controller.ts
- M apps/api/src/modules/orders/orders.module.ts
- M apps/api/src/modules/orders/orders.service.ts
- M package-lock.json
- M package.json
- M packages/contracts/src/catalog.ts
- M packages/contracts/src/orders.ts
- M packages/contracts/src/restaurant-ops.ts
-?? apps/api/src/modules/finance/
-?? apps/api/src/modules/growth/
-?? apps/api/src/modules/reviews/
-?? apps/api/src/modules/support/
+ M .claude/launch.json
+ M README.md
+ M apps/web/app/accueil/page.tsx
+ M apps/web/app/admin/layout.tsx
+ M apps/web/app/admin/page.tsx
+ M apps/web/app/compte/page.tsx
+ M apps/web/app/pro/[rid]/layout.tsx
+ M apps/web/app/restaurants/[slug]/page.tsx
+ M apps/web/components/client/restaurant-card.tsx
+ M apps/web/tsconfig.tsbuildinfo
+ M docs/06-plan-de-realisation.md
+?? apps/web/app/admin/assistance/
+?? apps/web/app/admin/avis/
+?? apps/web/app/admin/clients/
+?? apps/web/app/admin/commercial/
+?? apps/web/app/admin/finances/
+?? apps/web/app/admin/journal/
+?? apps/web/app/admin/performance/
+?? apps/web/app/admin/personnel/
+?? apps/web/app/aide/
+?? apps/web/app/pro/[rid]/avis/
+?? apps/web/app/pro/[rid]/finances/
+?? apps/web/components/console/kit.tsx
 ```
 
 Diff stat:
 ```
- .anchor/session-state.md                           |   31 +-
- apps/api/package.json                              |    3 +
- apps/api/src/app.module.ts                         |    4 +
- apps/api/src/modules/catalog/catalog.controller.ts |    5 +
- apps/api/src/modules/catalog/catalog.service.ts    |   45 +-
- apps/api/src/modules/customers/cart.service.ts     |    6 +-
- apps/api/src/modules/customers/customer.schemas.ts |    1 +
- apps/api/src/modules/ledger/ledger.service.ts      |   24 +
- apps/api/src/modules/menu/menu.service.ts          |    6 +
- apps/api/src/modules/orders/checkout.service.ts    |   45 +-
- apps/api/src/modules/orders/orders.controller.ts   |    3 +
- apps/api/src/modules/orders/orders.module.ts       |    2 +
- apps/api/src/modules/orders/orders.service.ts      |    2 +-
- package-lock.json                                  | 8267 ++++++++++++++++----
- package.json                                       |    3 +-
- packages/contracts/src/catalog.ts                  |    2 +
- packages/contracts/src/orders.ts                   |    5 +-
- packages/contracts/src/restaurant-ops.ts           |   79 +
- 18 files changed, 6833 insertions(+), 1700 deletions(-)
+ .anchor/session-state.md                       | 75 +++++++++-----------------
+ .claude/launch.json                            | 11 +++-
+ README.md                                      | 17 +++---
+ apps/web/app/accueil/page.tsx                  | 40 +++++++++++++-
+ apps/web/app/admin/layout.tsx                  |  8 +++
+ apps/web/app/admin/page.tsx                    | 75 +++++++++++++++++++++-----
+ apps/web/app/compte/page.tsx                   |  1 +
+ apps/web/app/pro/[rid]/layout.tsx              |  2 +
+ apps/web/app/restaurants/[slug]/page.tsx       | 22 +++++++-
+ apps/web/components/client/restaurant-card.tsx |  1 +
+ apps/web/tsconfig.tsbuildinfo                  |  2 +-
+ docs/06-plan-de-realisation.md                 | 33 +++++++-----
+ 12 files changed, 201 insertions(+), 86 deletions(-)
 ```
 
 ## Recent commits
 ```
+0378519 Phases 5 et 6 (API) : finances, paiement Mobile Money FedaPay, commercial, avis, assistance, console admin
 cbd3353 Marketplace multi-restaurants avec livraison (Cotonou) — phases 0 à 4
 ```
 

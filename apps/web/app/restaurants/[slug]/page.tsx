@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
-import { PublicRestaurantDetail, WEEKDAYS_FR } from '@plateforme/contracts';
+import { PublicRestaurantDetail, PublicReview, WEEKDAYS_FR } from '@plateforme/contracts';
 import { DemoBadge } from '@/components/client/demo-badge';
 import { ErrorBlock, LoadingBlock, RatingOrNew } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
@@ -109,6 +109,7 @@ export default function RestaurantPage() {
             ))}
           </section>
         ))}
+        <Reviews slug={slug} count={r.ratingCount} />
       </main>
 
       <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-[430px] -translate-x-1/2 items-center justify-between border-t border-line bg-surface px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
@@ -120,5 +121,24 @@ export default function RestaurantPage() {
           className="grid size-11 place-items-center rounded-full bg-[#e9e9e9] text-ink">⌃</button>
       </div>
     </MobileScreen>
+  );
+}
+
+/** Avis vérifiés : laissés uniquement par des clients dont la commande a été livrée. */
+function Reviews({ slug, count }: { slug: string; count: number }) {
+  const list = useApi<PublicReview[]>(count > 0 ? `/catalog/restaurants/${encodeURIComponent(slug)}/reviews` : null);
+  if (!count || !list.data?.length) return null;
+  return (
+    <section className="pt-8">
+      <h2 className="pb-2 text-xl font-semibold text-brand">Avis des clients</h2>
+      <p className="pb-2 text-xs text-ink-muted">Uniquement des clients ayant reçu leur commande.</p>
+      {list.data.slice(0, 10).map((v) => (
+        <div key={v.id} className="border-b border-line py-3 text-sm last:border-0">
+          <p><span className="text-warning">{'★'.repeat(v.rating)}{'☆'.repeat(5 - v.rating)}</span> <b>{v.authorName}</b> <span className="text-xs text-ink-muted">· {new Date(v.createdAt).toLocaleDateString('fr-FR')}</span></p>
+          {v.comment && <p className="mt-1 text-ink-muted">{v.comment}</p>}
+          {v.reply && <p className="mt-2 rounded-[8px] bg-brand-50 p-2 text-[13px]"><b>Réponse du restaurant :</b> {v.reply}</p>}
+        </div>
+      ))}
+    </section>
   );
 }

@@ -161,6 +161,7 @@ export default function AccountPage() {
         <div className="grid grid-cols-2 gap-3">
           <a href="/commandes" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">🧾 Mes commandes</a>
           <a href="/compte/adresses" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">📍 Mes adresses</a>
+          <a href="/aide" className="rounded-[14px] bg-surface p-4 text-sm font-semibold shadow-[var(--shadow-card)]">💬 Aide</a>
         </div>
         <Card className="p-4">
           <h2 className="mb-4 font-bold">Informations personnelles</h2>
