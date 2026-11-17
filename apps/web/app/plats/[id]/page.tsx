@@ -3,9 +3,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { computeUnitPrice, type PublicProduct, type PublicRestaurantCard } from '@plateforme/contracts';
 import { DemoBadge } from '@/components/client/demo-badge';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { ErrorBlock, LoadingBlock, RatingOrNew } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
-import { IconCart, IconClock, QuantityStepper } from '@/components/ui';
+import { AppIcon, IconCart, IconClock, QuantityStepper } from '@/components/ui';
 import { useCart } from '@/lib/cart';
 import { fcfa, useApi } from '@/lib/use-api';
 
@@ -32,8 +33,8 @@ export default function ProductPage() {
   }, [data, variants, addons]);
   const price = data ? computeUnitPrice(data.product, selection) : null;
 
-  if (loading) return <MobileScreen className="bg-detail"><LoadingBlock /></MobileScreen>;
-  if (error || !data) return <MobileScreen className="bg-detail">{error && <ErrorBlock error={error} onRetry={reload} />}</MobileScreen>;
+  if (loading) return <MobileScreen wide className="bg-detail"><LoadingBlock /></MobileScreen>;
+  if (error || !data) return <MobileScreen wide className="bg-detail">{error && <ErrorBlock error={error} onRetry={reload} />}</MobileScreen>;
   const { product: p, restaurant: r } = data;
   const canAdd = r.isOpen && p.available && price?.ok;
 
@@ -65,18 +66,20 @@ export default function ProductPage() {
   }
 
   return (
-    <MobileScreen className="bg-detail">
-      <div className="flex-1 space-y-5 px-5 pb-6 pt-5">
+    <MobileScreen wide className="bg-detail">
+      <div className="mx-auto flex-1 space-y-5 px-5 pb-6 pt-5 md:w-full md:max-w-[820px] md:px-8 md:pt-8">
         <div className="flex items-center justify-between">
-          <button type="button" onClick={() => router.back()} aria-label="Retour" className="grid size-12 place-items-center rounded-[14px] bg-surface text-xl">‹</button>
+          <button type="button" onClick={() => router.back()} aria-label="Retour" className="grid size-12 place-items-center rounded-[14px] bg-surface text-xl">
+            <AppIcon name="arrow-left" className="size-5" />
+          </button>
           {r.isDemo ? <DemoBadge /> : <span />}
           <button type="button" onClick={() => setFav((v) => !v)} aria-pressed={fav} aria-label="Ajouter aux favoris" className="grid size-12 place-items-center rounded-[14px] bg-surface">
-            <svg viewBox="0 0 24 24" className="size-5" fill={fav ? '#F15A24' : 'none'} stroke={fav ? '#F15A24' : 'currentColor'} strokeWidth="1.8" aria-hidden><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" /></svg>
+            <AppIcon name="heart" className={`size-5 ${fav ? 'fill-brand text-brand' : ''}`} />
           </button>
         </div>
         {p.imageUrls[0] ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={p.imageUrls[0]} alt={p.name} className="aspect-[5/4] w-full rounded-[22px] object-cover shadow-lg" />
+          <img src={p.imageUrls[0]} alt={p.name} className="aspect-[5/4] w-full rounded-[22px] object-cover shadow-lg md:aspect-[16/9]" />
         ) : <div className="grid aspect-[5/4] w-full place-items-center rounded-[22px] bg-peach text-5xl" aria-hidden>🍽️</div>}
         <div>
           <div className="flex items-start justify-between gap-3">
@@ -166,7 +169,7 @@ export default function ProductPage() {
           </div>
         )}
       </div>
-      <div className="sticky bottom-0 flex items-center justify-between gap-4 bg-surface px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="sticky bottom-0 z-10 flex items-center justify-between gap-4 bg-surface px-5 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-3 md:mx-auto md:w-full md:max-w-[1440px] md:rounded-2xl md:px-8 md:pb-5 md:shadow-[var(--shadow-card)]">
         <div>
           <p className="text-xs text-ink-muted">Prix total</p>
           <p className="text-xl font-extrabold tabular-nums">{price?.ok ? fcfa(price.unitPrice * qty) : '—'}</p>
@@ -176,6 +179,7 @@ export default function ProductPage() {
           <IconCart className="size-5" /> {!r.isOpen ? 'Fermé' : !p.available ? 'Indisponible' : 'Ajouter au panier'}
         </button>
       </div>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

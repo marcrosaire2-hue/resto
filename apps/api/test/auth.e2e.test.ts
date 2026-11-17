@@ -1,10 +1,11 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { OAuth2Client } from 'google-auth-library';
 import { Types } from 'mongoose';
 import { Client, db, lastCode, nextPhone, PASSWORD, registeredClient, sentMails, startApp, TestEnv } from './helpers';
 
 let t: TestEnv;
 beforeAll(async () => {
-  t = await startApp();
+  t = await startApp({ GOOGLE_CLIENT_ID: 'test-google-client-id' });
 });
 afterAll(async () => {
   await t?.close();
@@ -96,6 +97,7 @@ describe('Authentification', () => {
     const r = await c.post('/api/auth/register', {
       fullName: 'Ada Houngbo', phone: '01 97 11 22 33', email: 'Ada@Example.com', code: lastCode('ada@example.com'), password: PASSWORD, passwordConfirm: PASSWORD,
     });
+
     expect(r.status).toBe(201);
     expect(r.body).toMatchObject({ fullName: 'Ada Houngbo', phone: '+2290197112233', email: 'ada@example.com', platformRoles: [], restaurants: [] });
     expect(JSON.stringify(r.body)).not.toMatch(/password/i);
@@ -222,5 +224,62 @@ describe('Authentification', () => {
     const r = await c.get('/api/health');
     expect(r.status).toBe(200);
     expect(r.body).toMatchObject({ status: 'ok', mongo: 'up', media: 'not_configured' });
+  });
+});
+
+describe('Connexion Google', () => {
+  it('demande un téléphone à la première connexion puis crée une session Google vérifiée', async () => {
+    const verify = vi.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({ sub: 'google-sub-1', email: 'google@test.local', email_verified: true, name: 'Google Test' }),
+    } as never);
+    try {
+      const client = await new Client(t.app).init();
+      const required = await client.post('/api/auth/google', { credential: 'verified-google-token' });
+      expect(required.status).toBe(422);
+      expect(required.body.error).toBe('GOOGLE_PHONE_REQUIRED');
+
+      const loggedIn = await client.post('/api/auth/google', { credential: 'verified-google-token', phone: nextPhone() });
+      expect(loggedIn.status).toBe(200);
+      expect(loggedIn.body).toMatchObject({ fullName: 'Google Test', email: 'google@test.local' });
+      expect((await client.get('/api/auth/me')).status).toBe(200);
+      const user = await db(t).collection('users').findOne({ email: 'google@test.local' });
+      expect(user).toMatchObject({ googleSubject: 'google-sub-1' });
+      expect(user?.emailVerifiedAt).toBeInstanceOf(Date);
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('associe une identité Google vérifiée au compte existant ayant la même adresse', async () => {
+    const { client: existingClient, email, userId } = await registeredClient(t.app);
+    const verify = vi.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({ sub: 'google-sub-existing', email, email_verified: true, name: 'Compte lié' }),
+    } as never);
+    try {
+      const client = await new Client(t.app).init();
+      const result = await client.post('/api/auth/google', { credential: 'verified-google-token' });
+      expect(result.status).toBe(200);
+      expect(result.body.id).toBe(userId);
+      expect((await existingClient.get('/api/auth/me')).status).toBe(200);
+      expect(await db(t).collection('users').countDocuments({ email })).toBe(1);
+      expect(await db(t).collection('users').countDocuments({ googleSubject: 'google-sub-existing' })).toBe(1);
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('refuse une identité Google dont l’adresse e-mail n’est pas vérifiée', async () => {
+    const verify = vi.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue({
+      getPayload: () => ({ sub: 'google-sub-unverified', email: 'unverified@test.local', email_verified: false }),
+    } as never);
+    try {
+      const client = await new Client(t.app).init();
+      const result = await client.post('/api/auth/google', { credential: 'unverified-google-token' });
+      expect(result.status).toBe(401);
+      expect(result.body.error).toBe('GOOGLE_EMAIL_UNVERIFIED');
+      expect(await db(t).collection('users').countDocuments({ email: 'unverified@test.local' })).toBe(0);
+    } finally {
+      verify.mockRestore();
+    }
   });
 });

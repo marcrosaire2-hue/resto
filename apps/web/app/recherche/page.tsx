@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import type { PublicCuisine, PublicProduct, PublicRestaurantCard } from '@plateforme/contracts';
 import { PlainHeader } from '@/components/client/plain-header';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { FilterSheet, SORT_LABELS, SortKey } from '@/components/client/filter-sheet';
 import { RestaurantCard } from '@/components/client/restaurant-card';
 import { ErrorBlock, LoadingBlock } from '@/components/client/states';
@@ -32,9 +33,9 @@ export default function SearchPage() {
   const global = useApi<SearchResult>(term.length >= 2 ? `/catalog/search?q=${encodeURIComponent(term)}` : null);
 
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Rechercher" backHref="/accueil" />
-      <div className="space-y-3 px-4">
+      <div className="desktop-search-tools space-y-3 px-4">
         <div className="flex gap-3">
           <label className="flex h-12 flex-1 items-center gap-2.5 rounded-[14px] border border-line px-4">
             <IconSearch className="size-5" />
@@ -55,13 +56,15 @@ export default function SearchPage() {
           ))}
         </div>
       </div>
-      <main className="flex-1 px-4 py-4">
+      <main className="flex-1 px-4 py-4 pb-28">
         {tab === 'restaurants' ? (
           restaurants.loading ? <LoadingBlock /> : restaurants.error ? <ErrorBlock error={restaurants.error} onRetry={restaurants.reload} />
-            : restaurants.data!.length === 0 ? <Empty /> : <div className="grid grid-cols-2 gap-3">{restaurants.data!.map((r) => <RestaurantCard key={r.id} r={r} />)}</div>
+            : !restaurants.data ? <LoadingBlock />
+            : restaurants.data!.length === 0 ? <Empty /> : <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-5 xl:grid-cols-4">{restaurants.data!.map((r) => <RestaurantCard key={r.id} r={r} />)}</div>
         ) : term.length < 2 ? (
           <p className="py-10 text-center text-sm text-ink-muted">Saisissez au moins 2 lettres pour chercher un plat.</p>
         ) : global.loading ? <LoadingBlock /> : global.error ? <ErrorBlock error={global.error} onRetry={global.reload} />
+          : !global.data ? <LoadingBlock />
           : global.data!.products.length === 0 ? <Empty /> : (
             <ul className="divide-y divide-line">
               {global.data!.products.map((p) => (
@@ -81,6 +84,7 @@ export default function SearchPage() {
           )}
       </main>
       <FilterSheet open={filters} onClose={() => setFilters(false)} openOnly={openOnly} setOpenOnly={setOpenOnly} sort={sort} setSort={setSort} />
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

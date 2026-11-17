@@ -16,11 +16,21 @@ import { AuthService } from './auth.service';
 import { clearSessionCookie, CSRF_COOKIE, setCsrfCookie, setSessionCookie } from './cookies';
 
 const authLimit = () => env().THROTTLE_AUTH_LIMIT_PER_MIN;
+const googleLoginSchema = z.object({
+  credential: z.string().min(1).max(4096),
+  phone: z.string().trim().min(1).max(40).optional(),
+}).strict();
 
 @ApiTags('auth')
 @Controller()
 export class AuthController {
   constructor(private readonly auth: AuthService, private readonly users: UsersService) {}
+
+  @Public()
+  @Get('auth/providers')
+  providers() {
+    return { googleClientId: env().GOOGLE_CLIENT_ID || null };
+  }
 
   /** À appeler au chargement de l'application : fournit le jeton CSRF. */
   @Public()
@@ -55,6 +65,20 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const { user, session } = await this.auth.login(body.identifier, body.password, requestMeta(req));
+    setSessionCookie(res, session.token, session.expiresAt);
+    return this.auth.me(user);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: authLimit, ttl: 60_000 } })
+  @HttpCode(200)
+  @Post('auth/google')
+  async googleLogin(
+    @Body(new ZodPipe(googleLoginSchema)) body: z.output<typeof googleLoginSchema>,
+    @Req() req: AppRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, session } = await this.auth.googleLogin(body.credential, body.phone, requestMeta(req));
     setSessionCookie(res, session.token, session.expiresAt);
     return this.auth.me(user);
   }

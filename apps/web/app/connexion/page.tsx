@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
 import { loginSchema, type MeResponse } from '@plateforme/contracts';
 import { AuthShell } from '@/components/auth-shell';
+import { GoogleSignIn } from '@/components/google-sign-in';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { validate } from '@/lib/forms';
@@ -41,6 +42,7 @@ function LoginForm() {
   }
 
   return (
+    <div className="space-y-5">
     <form onSubmit={onSubmit} noValidate className="space-y-5">
       {formError && <Alert tone="danger">{formError}</Alert>}
       <Field label="Téléphone ou e-mail" name="identifier" autoComplete="username" inputMode="text" placeholder="01 97 00 00 00"
@@ -52,12 +54,21 @@ function LoginForm() {
       </div>
       <Button type="submit" block size="lg" loading={loading}>Se connecter</Button>
     </form>
+    <div className="relative py-1 text-center">
+      <span className="bg-canvas px-3 text-xs font-medium text-ink-muted">ou continuer avec</span>
+      <span className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" aria-hidden />
+    </div>
+    <GoogleSignIn onAuthenticated={(user) => {
+      setMe(user);
+      router.replace(safeNext(params.get('suite')));
+    }} />
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <AuthShell title="Bon retour parmi nous" subtitle="Connectez-vous pour commander et suivre vos livraisons."
+    <AuthShell title="Bon retour parmi nous" subtitle="Connectez-vous pour commander et suivre vos livraisons." imageSrc="/demo/plat-detail.jpg"
       footer={<>Pas encore de compte ? <Link href="/inscription" className="font-semibold text-brand-600 hover:underline">Créer un compte</Link></>}>
       <Suspense><LoginForm /></Suspense>
     </AuthShell>

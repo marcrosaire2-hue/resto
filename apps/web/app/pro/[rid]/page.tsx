@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Notice, PageTitle } from '@/components/console/console-shell';
 import { StatusPill } from '@/components/console/form';
 import { DashboardPanel } from '@/components/console/dashboard-panel';
-import { Card, Spinner } from '@/components/ui';
+import { AppIcon, Card, Spinner } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useProRestaurant } from '@/lib/pro';
 import type { ProMenu, ProProfile } from '@/lib/pro-types';
@@ -42,8 +42,59 @@ export default function ProOverview() {
   ] : [];
 
   const allDone = steps.length > 0 && steps.every((x) => x.done);
+  const shortcuts = [
+    { href: `/pro/${rid}/commandes`, label: 'Commandes', hint: 'Suivre les commandes clients', icon: 'receipt-text' as const, image: '/demo/commande.jpg', show: can('orders.view') },
+    { href: `/pro/${rid}/menu`, label: 'Votre menu', hint: 'Plats et catégories', icon: 'chef-hat' as const, image: '/demo/menu-2.jpg', show: can('menu.view') },
+    { href: `/pro/${rid}/profil`, label: 'Votre vitrine', hint: 'Photos et informations', icon: 'store' as const, image: '/demo/resto-3.jpg', show: can('restaurant.profile.view') },
+    { href: `/pro/${rid}/horaires`, label: 'Horaires', hint: 'Disponibilité et zones', icon: 'clock-3' as const, image: '/demo/resto-4.jpg', show: can('restaurant.profile.view') },
+  ].filter((x) => x.show);
   return (
     <>
+      {p && (
+        <section className="relative isolate mb-6 min-h-[220px] overflow-hidden rounded-[26px] bg-[#153d2d] text-white shadow-[0_16px_38px_rgb(23_48_36/0.18)] sm:min-h-[270px] sm:rounded-[32px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={p.preview.coverUrl || '/demo/resto-2.jpg'} alt="" className="absolute inset-0 -z-20 size-full object-cover object-center" />
+          <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#102f24]/95 via-[#153d2d]/76 to-[#153d2d]/20" aria-hidden />
+          <div className="relative flex min-h-[220px] flex-col justify-between p-5 sm:min-h-[270px] sm:p-8">
+            <div className="flex items-start justify-between gap-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#def0ae] backdrop-blur-md">
+                <span className={`size-2 rounded-full ${p.status === 'ACTIVE' && p.acceptingOrders ? 'bg-[#b9e36b]' : 'bg-amber-300'}`} />
+                {p.status === 'ACTIVE' ? p.acceptingOrders ? 'Ouvert aux commandes' : 'Commandes suspendues' : 'Configuration du restaurant'}
+              </span>
+              {p.publishedAt && p.status === 'ACTIVE' && <a href={`/restaurants/${p.slug}`} target="_blank" rel="noreferrer" className="hidden items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-xs font-bold backdrop-blur transition-colors hover:bg-white/20 sm:inline-flex">Voir ma vitrine <AppIcon name="arrow-up-right" className="size-4" /></a>}
+            </div>
+            <div className="max-w-[620px]">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-[#d9efaa]">Bienvenue dans votre espace</p>
+              <h1 className="mt-2 text-2xl font-extrabold leading-tight tracking-tight sm:text-4xl">{p.preview.name || 'Votre restaurant'}</h1>
+              <p className="mt-2 line-clamp-2 max-w-[500px] text-xs leading-relaxed text-white/80 sm:text-sm">{p.preview.description || 'Gérez votre vitrine, vos plats et vos commandes depuis un seul endroit.'}</p>
+            </div>
+          </div>
+        </section>
+      )}
+      {shortcuts.length > 0 && (
+        <section className="mb-7">
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-brand">Accès rapide</p>
+              <h2 className="mt-1 text-lg font-extrabold tracking-tight sm:text-xl">Tout pour faire tourner votre restaurant</h2>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+            {shortcuts.map((item) => (
+              <Link key={item.href} href={item.href} className="group relative isolate flex min-h-[142px] flex-col justify-end overflow-hidden rounded-[20px] bg-[#153d2d] p-4 text-white shadow-[var(--shadow-card)] transition-transform hover:-translate-y-1 sm:min-h-[170px] sm:rounded-[24px] sm:p-5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={item.image} alt="" className="absolute inset-0 -z-20 size-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#102f24]/95 via-[#153d2d]/40 to-[#153d2d]/10" aria-hidden />
+                <span className="mb-auto grid size-9 place-items-center rounded-xl border border-white/20 bg-white/15 backdrop-blur-md"><AppIcon name={item.icon} className="size-[18px]" /></span>
+                <span className="mt-5 block text-sm font-extrabold sm:text-base">{item.label}</span>
+                <span className="mt-0.5 flex items-center justify-between gap-2 text-[10px] text-white/75 sm:text-xs">
+                  {item.hint}<AppIcon name="arrow-up-right" className="size-4 shrink-0" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       {can('orders.view') && p?.status === 'ACTIVE' && <div className="mb-6"><PageTitle title="Tableau de bord" actions={can('kitchen.view') ? <a href={`/cuisine/${rid}`} className="text-sm font-semibold text-brand">Ouvrir l’écran cuisine ↗</a> : undefined} /><DashboardPanel rid={rid} /></div>}
       {!allDone && <PageTitle title="Mise en ligne" actions={p?.publishedAt && p.status === 'ACTIVE' ? <a href={`/restaurants/${p.slug}`} target="_blank" className="text-sm font-semibold text-brand">Voir ma vitrine ↗</a> : undefined} />}
       <Notice msg={msg} />

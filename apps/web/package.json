@@ -10,6 +10,10 @@
   },
   "dependencies": {
     "@fontsource-variable/manrope": "5.3.0",
+    "@iconify-icons/fa6-brands": "^2.0.0",
+    "@iconify-icons/fa6-solid": "^2.0.0",
+    "@iconify-icons/lucide": "^2.0.31",
+    "@iconify/react": "^6.0.4",
     "@plateforme/contracts": "0.1.0",
     "leaflet": "1.9.4",
     "next": "15.5.29",

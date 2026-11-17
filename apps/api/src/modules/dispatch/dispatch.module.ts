@@ -5,7 +5,7 @@ import { CouriersService } from '../couriers/couriers.service';
 import { Order, OrderSchema } from '../orders/order.schema';
 import { OrdersModule } from '../orders/orders.module';
 import { User, UserSchema } from '../users/user.schema';
-import { AdminCouriersController, CourierController, OpsController } from './dispatch.controllers';
+import { AdminCouriersController, CourierController, CustomerTrackingController, OpsController } from './dispatch.controllers';
 import { DeliveriesService } from './deliveries.service';
 import { IncidentsService } from './incidents.service';
 import { OpsService } from './ops.service';
@@ -21,7 +21,7 @@ import { OpsService } from './ops.service';
       { name: User.name, schema: UserSchema },
     ]),
   ],
-  controllers: [CourierController, OpsController, AdminCouriersController],
+  controllers: [CourierController, CustomerTrackingController, OpsController, AdminCouriersController],
   providers: [CouriersService, DeliveriesService, IncidentsService, OpsService],
   exports: [IncidentsService, OpsService, DeliveriesService],
 })

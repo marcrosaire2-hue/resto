@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react';
 import { PASSWORD_MIN, registerSchema, type MeResponse } from '@plateforme/contracts';
 import { AuthShell } from '@/components/auth-shell';
 import { CodeInput, ResendButton } from '@/components/code-input';
+import { GoogleSignIn } from '@/components/google-sign-in';
 import { Alert, Button, Field } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { validate } from '@/lib/forms';
@@ -68,10 +69,11 @@ export default function RegisterPage() {
   }
 
   return (
-    <AuthShell title={step === 'details' ? 'Créer votre compte' : 'Vérifiez votre e-mail'}
+    <AuthShell imageSrc="/demo/plat-zuppa.jpg" title={step === 'details' ? 'Créer votre compte' : 'Vérifiez votre e-mail'}
       subtitle={step === 'details' ? 'Quelques informations suffisent pour commander.' : `Saisissez le code à 6 chiffres envoyé à ${values.email}. Il est valable 10 minutes.`}
       footer={<>Déjà inscrit ? <Link href="/connexion" className="font-semibold text-brand-600 hover:underline">Se connecter</Link></>}>
       {step === 'details' ? (
+        <>
         <form onSubmit={onDetails} noValidate className="space-y-4">
           {formError && <Alert tone="danger">{formError}</Alert>}
           <Field label="Nom complet" autoComplete="name" value={values.fullName} onChange={set('fullName')} error={errors.fullName} />
@@ -84,6 +86,12 @@ export default function RegisterPage() {
             onChange={set('passwordConfirm')} error={errors.passwordConfirm} />
           <Button type="submit" block size="lg" loading={loading} className="!mt-6">Recevoir le code</Button>
         </form>
+        <div className="relative my-5 text-center">
+          <span className="bg-canvas px-3 text-xs font-medium text-ink-muted">ou créer un compte avec</span>
+          <span className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" aria-hidden />
+        </div>
+        <GoogleSignIn onAuthenticated={(user) => { setMe(user); router.replace('/accueil'); }} />
+        </>
       ) : (
         <form onSubmit={onCode} noValidate className="space-y-5">
           {formError && <Alert tone="danger">{formError}</Alert>}

@@ -21,7 +21,7 @@ export class UsersService {
     return argon2.verify(hash, password);
   }
 
-  async create(input: { fullName: string; phone: string; email?: string; password: string; emailVerified?: boolean }) {
+  async create(input: { fullName: string; phone: string; email?: string; password: string; emailVerified?: boolean; googleSubject?: string }) {
     if (await this.model.exists({ phone: input.phone })) {
       throw conflict('PHONE_TAKEN', 'Un compte existe déjà avec ce numéro.');
     }
@@ -33,6 +33,7 @@ export class UsersService {
         fullName: input.fullName,
         phone: input.phone,
         email: input.email ?? null,
+        googleSubject: input.googleSubject ?? null,
         emailVerifiedAt: input.emailVerified ? new Date() : null,
         passwordHash: await this.hashPassword(input.password),
       });
@@ -52,6 +53,18 @@ export class UsersService {
 
   findByEmail(email: string) {
     return this.model.findOne({ email });
+  }
+
+  findByGoogleSubject(subject: string) {
+    return this.model.findOne({ googleSubject: subject });
+  }
+
+  linkGoogleAccount(user: UserDocument, subject: string) {
+    return this.model.findOneAndUpdate(
+      { _id: user._id, $or: [{ googleSubject: null }, { googleSubject: subject }] },
+      { $set: { googleSubject: subject, emailVerifiedAt: user.emailVerifiedAt ?? new Date() } },
+      { new: true },
+    ).exec();
   }
 
   findByPhone(phone: string) {

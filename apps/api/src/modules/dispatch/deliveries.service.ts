@@ -1,7 +1,7 @@
 import { HttpException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { CourierDeliveryView, CourierOffer, DELIVERY_STATUS_LABELS, maskPhone, MAX_OTP_ATTEMPTS, OrderStatus } from '@plateforme/contracts';
+import { CourierDeliveryView, CourierOffer, DELIVERY_STATUS_LABELS, maskPhone, MAX_OTP_ATTEMPTS, OrderStatus, OrderTrackingView } from '@plateforme/contracts';
 import { conflict, forbidden, notFound, unprocessable } from '../../common/errors';
 import { Courier, Delivery } from '../couriers/courier.schemas';
 import { CouriersService } from '../couriers/couriers.service';
@@ -39,6 +39,30 @@ export class DeliveriesService {
 
   private async order(orderId: Types.ObjectId) {
     return this.orderService.findAny(orderId);
+  }
+
+  async trackingForCustomer(userId: string, orderId: Types.ObjectId): Promise<OrderTrackingView> {
+    const order = await this.orders.findOne({ _id: orderId, customerId: new Types.ObjectId(userId) })
+      .setOptions({ crossTenant: true }).lean();
+    if (!order) throw notFound('Commande introuvable.');
+    if (order.status !== 'IN_DELIVERY' || !order.courierId) return { available: false, position: null };
+
+    const delivery = await this.deliveries.findOne({
+      orderId: order._id,
+      courierId: order.courierId,
+      active: true,
+      status: { $in: ['PICKED_UP', 'AT_DROPOFF'] },
+    }).lean();
+    if (!delivery?.pickedUpAt) return { available: false, position: null };
+
+    const courier = await this.couriers.findOne(
+      { _id: order.courierId, status: 'ACTIVE' },
+      { lastLat: 1, lastLng: 1, lastAccuracy: 1, lastPositionAt: 1 },
+    ).lean();
+    const position = courier?.lastLat != null && courier.lastLng != null && courier.lastPositionAt && courier.lastPositionAt >= delivery.pickedUpAt
+      ? { lat: courier.lastLat, lng: courier.lastLng, accuracy: courier.lastAccuracy, at: courier.lastPositionAt.toISOString() }
+      : null;
+    return { available: true, position };
   }
 
   private async activeAttempt(o: O) {

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AddressForm, SavedAddress } from '@/components/client/address-form';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { PlainHeader } from '@/components/client/plain-header';
 import { LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
@@ -17,9 +18,9 @@ export default function AddressesPage() {
   const list = useApi<SavedAddress[]>(me ? '/me/addresses' : null);
   const [editing, setEditing] = useState<SavedAddress | 'new' | null>(null);
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Mes adresses" backHref="/compte" />
-      <main className="flex-1 space-y-3 px-4 pb-6">
+      <main className="flex-1 space-y-3 px-4 pb-28">
         {list.loading ? <LoadingBlock /> : list.data?.map((a) => (
           <div key={a.id} className="rounded-[8px] border border-line p-3 text-sm">
             {editing !== 'new' && editing?.id === a.id ? (
@@ -41,6 +42,7 @@ export default function AddressesPage() {
           <div className="rounded-[8px] border border-line p-3"><AddressForm onSaved={() => { setEditing(null); list.reload(); }} onCancel={() => setEditing(null)} /></div>
         ) : <button type="button" className="h-11 w-full rounded-[8px] border border-brand font-semibold text-brand" onClick={() => setEditing('new')}>+ Ajouter une adresse</button>}
       </main>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

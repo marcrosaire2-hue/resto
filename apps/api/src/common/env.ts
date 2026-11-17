@@ -26,6 +26,7 @@ const schema = z
     BREVO_API_KEY: z.string().optional(),
     MAIL_FROM_EMAIL: z.string().optional(),
     MAIL_FROM_NAME: z.string().default('Marketplace Cotonou'),
+    GOOGLE_CLIENT_ID: z.string().trim().optional(),
     /** Réservé aux tests (serveur Brevo de test local). */
     BREVO_API_URL: z.url().optional(),
     /** Réservé aux tests (serveur FedaPay de test local). */

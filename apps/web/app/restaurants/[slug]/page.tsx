@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { PublicRestaurantDetail, PublicReview, WEEKDAYS_FR } from '@plateforme/contracts';
 import { DemoBadge } from '@/components/client/demo-badge';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { ErrorBlock, LoadingBlock, RatingOrNew } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
 import { IconArrowLeft } from '@/components/ui';
@@ -19,12 +20,12 @@ export default function RestaurantPage() {
   const [active, setActive] = useState<string | null>(null);
   const [showInfo, setShowInfo] = useState(false);
 
-  if (loading) return <MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>;
-  if (error || !r) return <MobileScreen className="bg-surface">{error && <ErrorBlock error={error} onRetry={reload} />}</MobileScreen>;
+  if (loading) return <MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>;
+  if (error || !r) return <MobileScreen wide className="bg-surface">{error && <ErrorBlock error={error} onRetry={reload} />}</MobileScreen>;
   const current = active ?? r.menu[0]?.id;
 
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       {r.coverUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={r.coverUrl} alt="" className="h-36 w-full object-cover" />
@@ -35,7 +36,7 @@ export default function RestaurantPage() {
           <div className="min-w-0">
             <h1 className="text-[26px] font-bold leading-tight">{r.name}</h1>
             <p className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
-              Propulsé par <span className="font-semibold text-brand">Marketplace</span> {r.isDemo && <DemoBadge />}
+              Propulsé par <span className="font-semibold text-brand">Miamigo</span> {r.isDemo && <DemoBadge />}
             </p>
           </div>
           <div role="radiogroup" aria-label="Langue" className="inline-flex shrink-0 rounded-full bg-brand-50">
@@ -86,8 +87,8 @@ export default function RestaurantPage() {
       <main className="flex-1 px-5 pb-28">
         {r.menu.length === 0 && <p className="py-12 text-center text-sm text-ink-muted">La carte de ce restaurant sera bientôt disponible.</p>}
         {r.menu.map((c) => (
-          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16">
-            <h2 className="pb-1 pt-6 text-xl font-semibold text-brand">{c.name}</h2>
+          <section key={c.id} id={`cat-${c.id}`} className="scroll-mt-16 md:grid md:grid-cols-2 md:gap-x-6 md:self-start">
+            <h2 className="pb-1 pt-6 text-xl font-semibold text-brand md:col-span-2">{c.name}</h2>
             {c.products.map((p) => (
               <Link key={p.id} href={`/plats/${p.id}`} className={`flex gap-3 border-b border-line py-4 last:border-0 ${p.available ? '' : 'opacity-60'}`}>
                 <div className="min-w-0 flex-1">
@@ -112,7 +113,7 @@ export default function RestaurantPage() {
         <Reviews slug={slug} count={r.ratingCount} />
       </main>
 
-      <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-[430px] -translate-x-1/2 items-center justify-between border-t border-line bg-surface px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3">
+      <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-[430px] -translate-x-1/2 items-center justify-between border-t border-line bg-surface px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 md:max-w-[1440px] md:rounded-t-2xl md:px-8 md:pb-4 md:pt-4 md:shadow-[var(--shadow-card)]">
         <Link href="/panier" className="relative grid size-11 place-items-center rounded-[10px] bg-canvas" aria-label={`Panier (${cart.count})`}>
           🧾{cart.count > 0 && <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-brand text-[11px] font-bold text-white">{cart.count}</span>}
         </Link>
@@ -120,6 +121,7 @@ export default function RestaurantPage() {
         <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Revenir en haut"
           className="grid size-11 place-items-center rounded-full bg-[#e9e9e9] text-ink">⌃</button>
       </div>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

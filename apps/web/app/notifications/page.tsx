@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlainHeader } from '@/components/client/plain-header';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
 import { api } from '@/lib/api';
@@ -20,9 +21,9 @@ export default function NotificationsPage() {
     if (list.data?.unread) void api('/notifications/read', { method: 'POST', body: { ids: 'all' } });
   }, [list.data?.unread]);
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Notifications" backHref="/accueil" />
-      <main className="flex-1 px-4 pb-6">
+      <main className="flex-1 px-4 pb-28">
         {list.loading || !list.data ? <LoadingBlock /> : list.data.items.length === 0 ? <p className="py-12 text-center text-sm text-ink-muted">Aucune notification.</p> : (
           <ul className="divide-y divide-line">
             {list.data.items.map((n) => {
@@ -32,6 +33,7 @@ export default function NotificationsPage() {
           </ul>
         )}
       </main>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

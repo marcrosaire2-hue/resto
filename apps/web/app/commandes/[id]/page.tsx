@@ -2,8 +2,10 @@
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { OrderStatus, OrderView, PublicReview, STATUS_LABELS_FR } from '@plateforme/contracts';
+import { OrderStatus, OrderTrackingView, OrderView, PublicReview, STATUS_LABELS_FR } from '@plateforme/contracts';
 import { PlainHeader } from '@/components/client/plain-header';
+import { TrackingMap } from '@/components/client/tracking-map';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { ErrorBlock, LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
 import { api, ApiError } from '@/lib/api';
@@ -14,7 +16,7 @@ const PATH: OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY', 'WAITI
 const BADGE: Partial<Record<OrderStatus, string>> = { AWAITING_PAYMENT: 'bg-warning', REJECTED: 'bg-danger', CANCELLED: 'bg-danger', DELIVERY_FAILED: 'bg-danger', DELIVERED: 'bg-success' };
 
 export default function OrderPage() {
-  return <Suspense fallback={<MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>}><OrderDetails /></Suspense>;
+  return <Suspense fallback={<MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>}><OrderDetails /></Suspense>;
 }
 
 /** Avis : uniquement après livraison, une fois par commande. */
@@ -59,7 +61,9 @@ function OrderDetails() {
   const { id } = useParams<{ id: string }>();
   const search = useSearchParams();
   const order = useApi<OrderView>(`/orders/${encodeURIComponent(id)}`);
+  const tracking = useApi<OrderTrackingView>(order.data?.status === 'IN_DELIVERY' ? `/orders/${encodeURIComponent(id)}/tracking` : null);
   useLive({ type: 'order', id }, ['order.updated'], order.reload);
+  useLive(order.data?.status === 'IN_DELIVERY' ? { type: 'order', id } : null, ['courier.position'], tracking.reload, 60_000);
   const [cancelling, setCancelling] = useState(false);
   const [paying, setPaying] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -78,8 +82,8 @@ function OrderDetails() {
       .catch(() => undefined);
   }, [id, search, order]);
 
-  if (order.loading && !order.data) return <MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>;
-  if (order.error || !order.data) return <MobileScreen className="bg-surface">{order.error && <ErrorBlock error={order.error} onRetry={order.reload} />}</MobileScreen>;
+  if (order.loading && !order.data) return <MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>;
+  if (order.error || !order.data) return <MobileScreen wide className="bg-surface">{order.error && <ErrorBlock error={order.error} onRetry={order.reload} />}</MobileScreen>;
   const o = order.data;
   const reached = new Map(o.history.map((h) => [h.status, h.at]));
   const failed = ['REJECTED', 'CANCELLED', 'DELIVERY_FAILED'].includes(o.status);
@@ -105,9 +109,9 @@ function OrderDetails() {
   }
 
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Détails de la commande" backHref="/commandes" />
-      <main className="flex-1 space-y-4 px-4 pb-6">
+      <main className="flex-1 space-y-4 px-4 pb-28">
         {o.items[0]?.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={o.items[0].imageUrl} alt="" className="aspect-[2.2/1] w-full rounded-[6px] object-cover" />
@@ -134,6 +138,37 @@ function OrderDetails() {
             <p>Code de livraison à donner au livreur <b>uniquement à la remise</b> :</p>
             <p className="mt-1 text-2xl font-extrabold tracking-[0.3em] text-brand">{o.deliveryCode}</p>
           </div>
+        )}
+
+        {o.status === 'IN_DELIVERY' && (
+          <section className="space-y-3 rounded-[22px] border border-line/70 bg-[#f5f4ed] p-3">
+            <div className="flex items-start gap-3">
+              <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-[#29382f] text-lg text-white" aria-hidden>🛵</span>
+              <div>
+                <h2 className="font-extrabold">Votre livreur est en route</h2>
+                <p className="mt-0.5 text-xs leading-relaxed text-ink-muted">La position réelle se met à jour pendant la livraison.</p>
+              </div>
+            </div>
+            {tracking.loading && !tracking.data && <p className="rounded-xl bg-surface p-3 text-sm text-ink-muted">Connexion au suivi GPS…</p>}
+            {tracking.error && (
+              <div role="alert" className="rounded-xl bg-danger-50 p-3 text-sm text-danger">
+                <p>{tracking.error.message}</p>
+                <button type="button" onClick={tracking.reload} className="mt-2 font-bold underline">Réessayer</button>
+              </div>
+            )}
+            {tracking.data?.position ? (
+              <>
+                <TrackingMap position={tracking.data.position} />
+                <p className="text-right text-[11px] text-ink-muted">
+                  Position reçue à {new Date(tracking.data.position.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </>
+            ) : tracking.data?.available ? (
+              <p className="rounded-xl bg-surface p-3 text-sm text-ink-muted">En attente du prochain partage de position du livreur…</p>
+            ) : tracking.data ? (
+              <p className="rounded-xl bg-surface p-3 text-sm text-ink-muted">La position GPS n’est pas disponible pour le moment.</p>
+            ) : null}
+          </section>
         )}
 
         <div className="space-y-2 rounded-[6px] border border-brand p-3 text-sm">
@@ -172,6 +207,7 @@ function OrderDetails() {
         </div>
         <Link href={`/aide?commande=${o.id}`} className="block text-center text-sm font-semibold text-brand">Un problème avec cette commande ?</Link>
       </main>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

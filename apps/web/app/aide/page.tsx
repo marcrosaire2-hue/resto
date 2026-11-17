@@ -3,6 +3,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { TICKET_STATUS_LABELS } from '@plateforme/contracts';
 import { PlainHeader } from '@/components/client/plain-header';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
 import { api, ApiError } from '@/lib/api';
@@ -13,7 +14,7 @@ interface T { id: string; subject: string; orderId: string | null; status: keyof
 const when = (d: string) => new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function HelpPage() {
-  return <Suspense fallback={<MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>}><Help /></Suspense>;
+  return <Suspense fallback={<MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>}><Help /></Suspense>;
 }
 
 /** Assistance client : ouvrir une demande (liée ou non à une commande) et suivre les réponses. */
@@ -30,7 +31,7 @@ function Help() {
   const [reply, setReply] = useState('');
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => { if (!loading && !me) router.replace(`/connexion?suite=${encodeURIComponent(`/aide${orderId ? `?commande=${orderId}` : ''}`)}`); }, [loading, me, router, orderId]);
-  if (!me || !list.data) return <MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>;
+  if (!me || !list.data) return <MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>;
 
   async function create() {
     setErr(null);
@@ -46,9 +47,9 @@ function Help() {
   }
 
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Aide" backHref="/compte" />
-      <main className="flex-1 space-y-4 px-4 pb-8">
+      <main className="flex-1 space-y-4 px-4 pb-28">
         {err && <p role="alert" className="rounded-[8px] bg-danger-50 p-3 text-sm text-danger">{err}</p>}
         {creating ? (
           <section className="space-y-3 rounded-[8px] border border-brand p-3 text-sm">
@@ -87,6 +88,7 @@ function Help() {
           ))}
         </section>
       </main>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

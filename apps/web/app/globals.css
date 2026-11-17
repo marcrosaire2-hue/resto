@@ -36,6 +36,8 @@
 
 html { -webkit-text-size-adjust: 100%; }
 body {
+  min-height: 100%;
+  margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -43,6 +45,359 @@ body {
 }
 :focus-visible { outline: 3px solid var(--color-brand-100); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
+
+/* A responsive, locally bundled visual identity for the customer experience. */
+.client-brand {
+  --color-brand: #17684A;
+  --color-brand-600: #0F513A;
+  --color-brand-50: #EAF4EA;
+  --color-brand-100: #CDE4D0;
+  --color-wine: #7A423A;
+  --color-canvas: #F7F8F3;
+  --color-ink: #1D3028;
+  --color-ink-muted: #68776F;
+  --color-line: #E2E9E0;
+  --color-success: #27845C;
+  --color-success-50: #E7F4EA;
+  --color-peach: #E8F1E5;
+  --color-peach-200: #D7E8D2;
+  --color-backdrop: #EFF2EA;
+  --color-star: #F5B700;
+  --shadow-raised: 0 8px 28px rgb(23 104 74 / 0.22);
+}
+.client-brand .bg-cta { background-image: linear-gradient(100deg, #17684A 0%, #0F513A 100%); }
+.client-brand .bg-header-orange { background-image: linear-gradient(140deg, #17684A 0%, #0F513A 100%); }
+.client-brand .bg-hero {
+  background-image: radial-gradient(120% 90% at 100% 0%, #DDEBC8 0%, transparent 55%), radial-gradient(90% 70% at 0% 100%, #EAF4EA 0%, transparent 60%);
+}
+.client-wide { width: 100%; max-width: none; margin-inline: auto; }
+
+.restaurant-console {
+  --color-brand: #17684A;
+  --color-brand-600: #0F513A;
+  --color-brand-50: #EAF4EA;
+  --color-brand-100: #CDE4D0;
+  --color-canvas: #F4F7F1;
+  --color-ink: #1D3028;
+  --color-ink-muted: #68776F;
+  --color-line: #E2E9E0;
+  --color-surface: #FFFFFF;
+  --shadow-card: 0 2px 6px rgb(22 53 38 / 0.035), 0 12px 30px rgb(22 53 38 / 0.055);
+  background:
+    radial-gradient(ellipse at 92% 8%, rgb(221 235 200 / 0.52), transparent 28%),
+    linear-gradient(145deg, #f7f8f3 0%, #edf2e8 100%);
+}
+
+.restaurant-sidebar {
+  background: linear-gradient(165deg, #123b2d 0%, #102f24 100%);
+  box-shadow: 12px 0 36px rgb(21 61 45 / 0.1);
+}
+
+.restaurant-sidebar-cover {
+  min-height: 196px;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.12);
+}
+
+.restaurant-console main {
+  width: 100%;
+}
+
+.restaurant-mobile-nav {
+  scrollbar-width: none;
+}
+
+.restaurant-mobile-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.restaurant-topbar {
+  box-shadow: 0 12px 34px rgb(21 61 45 / 0.12);
+}
+
+@media (min-width: 768px) {
+  .client-brand.client-wide {
+    background:
+      radial-gradient(ellipse at 12% 8%, rgb(221 235 200 / 0.62), transparent 34%),
+      linear-gradient(145deg, #f7f8f3 0%, #edf2e8 100%);
+  }
+
+  .client-wide > div > main:not(.auth-page-layout) {
+    box-sizing: border-box;
+    width: calc(100% - 64px);
+    max-width: 1520px;
+    margin-inline: auto;
+    padding-inline: clamp(24px, 3vw, 48px);
+    border: 1px solid rgb(226 233 224 / 0.8);
+    border-radius: 28px;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+
+  .client-wide .desktop-page-header {
+    position: relative;
+    isolation: isolate;
+    min-height: 168px;
+    overflow: hidden;
+    box-sizing: border-box;
+    width: calc(100% - 64px);
+    max-width: 1520px;
+    margin-inline: auto;
+    padding: 36px clamp(24px, 3vw, 48px);
+    border-radius: 0 0 28px 28px;
+    color: white;
+    background: #19392d;
+    box-shadow: 0 16px 38px rgb(23 48 36 / 0.16);
+  }
+
+  .client-wide .desktop-page-header::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    background-image:
+      linear-gradient(90deg, rgb(15 45 33 / 0.96) 0%, rgb(15 45 33 / 0.76) 42%, rgb(15 45 33 / 0.24) 100%),
+      url('/demo/resto-2.jpg');
+    background-position: center, center 46%;
+    background-size: cover;
+    content: '';
+  }
+
+  .client-wide .desktop-page-header > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .client-wide .desktop-page-header h1 {
+    color: white;
+    font-size: clamp(26px, 2.4vw, 38px);
+    letter-spacing: -0.035em;
+  }
+
+  .client-wide .desktop-page-header button {
+    color: white;
+    background: rgb(255 255 255 / 0.14);
+    backdrop-filter: blur(12px);
+  }
+
+  .client-wide .desktop-page-header button:hover {
+    background: rgb(255 255 255 / 0.24);
+  }
+
+  .client-wide .desktop-search-tools {
+    box-sizing: border-box;
+    width: calc(100% - 64px);
+    max-width: 1520px;
+    margin: 16px auto 0;
+    padding: 20px clamp(24px, 3vw, 48px);
+    border: 1px solid rgb(226 233 224 / 0.8);
+    border-radius: 24px;
+    background-image:
+      linear-gradient(105deg, rgb(255 255 255 / 0.96), rgb(255 255 255 / 0.88)),
+      url('/demo/plat-detail.jpg');
+    background-position: center, right 42%;
+    background-size: cover;
+    box-shadow: var(--shadow-card);
+  }
+
+  .client-wide > div > main:not(.auth-page-layout) {
+    min-height: 300px;
+  }
+
+  .auth-page-layout {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .auth-visual {
+    min-width: 0;
+  }
+
+  .auth-form-side {
+    background:
+      radial-gradient(ellipse at 88% 10%, rgb(221 235 200 / 0.62), transparent 34%),
+      linear-gradient(145deg, #fbfcf8 0%, #f2f5ee 100%);
+  }
+
+  .auth-form-side > div {
+    max-width: 560px;
+  }
+
+  .auth-page-header {
+    width: min(50%, 760px);
+  }
+
+  .auth-page-header a[aria-label="Retour à l’accueil"] {
+    border: 1px solid rgb(255 255 255 / 0.48);
+    color: #173c2d;
+    background: rgb(255 255 255 / 0.92);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  }
+}
+
+@media (max-width: 767px) {
+  .auth-page-layout {
+    row-gap: 0;
+  }
+
+  .auth-visual {
+    min-height: 300px;
+  }
+
+  .auth-form-side {
+    min-height: 420px;
+  }
+}
+
+.admin-console {
+  --color-brand: #17684A;
+  --color-brand-600: #0F513A;
+  --color-brand-50: #EAF4EA;
+  --color-brand-100: #CDE4D0;
+  --color-wine: #7A423A;
+  --color-canvas: #F5F7F1;
+  --color-ink: #1D3028;
+  --color-ink-muted: #68776F;
+  --color-line: #E2E9E0;
+  --color-success: #27845C;
+  --color-success-50: #E7F4EA;
+  --color-peach: #E8F1E5;
+  --color-peach-200: #D7E8D2;
+  --color-backdrop: #EFF2EA;
+  --shadow-card: 0 2px 6px rgb(22 53 38 / 0.035), 0 12px 30px rgb(22 53 38 / 0.055);
+  --shadow-raised: 0 10px 28px rgb(23 104 74 / 0.2);
+}
+.admin-sidebar {
+  background: linear-gradient(160deg, #123f30 0%, #0c3025 65%, #0a281f 100%);
+}
+.admin-sidebar-cover { min-height: 158px; }
+.admin-console .bg-cta { background-image: linear-gradient(100deg, #17684A 0%, #0F513A 100%); }
+.admin-dashboard-hero { min-height: 220px; }
+
+.miamigo-intro {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(221 235 200 / 0.62), transparent 42%),
+    #f7f8f3;
+  animation: intro-exit 0.4s ease 2.25s forwards;
+}
+.miamigo-intro__stage {
+  position: relative;
+  width: min(88vw, 360px);
+  height: 100px;
+}
+.miamigo-intro__wordmark {
+  position: absolute;
+  inset: 10px 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  animation: intro-arrive 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) 1.45s both;
+}
+.miamigo-intro__mark {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border-radius: 22px;
+  background: #17684a;
+  color: #fff;
+  box-shadow: 0 0 0 0 rgb(184 226 107 / 0%);
+  animation: intro-glow 0.9s ease 1.55s both;
+}
+.miamigo-intro__name {
+  color: #1d3028;
+  font-size: 34px;
+  font-weight: 850;
+  letter-spacing: -0.07em;
+}
+.miamigo-intro__name span { color: #17684a; }
+.miamigo-intro__rider {
+  position: absolute;
+  z-index: 2;
+  top: 31px;
+  left: -44px;
+  display: grid;
+  width: 44px;
+  height: 40px;
+  place-items: center;
+  color: #17684a;
+  animation: moto-to-mark 1.4s cubic-bezier(0.32, 0.02, 0.25, 1) 0.12s both;
+}
+.miamigo-intro__road {
+  position: absolute;
+  right: 12%;
+  bottom: 10px;
+  left: 12%;
+  height: 2px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, #a9c88b, transparent);
+  transform-origin: left center;
+  animation: road-draw 0.9s ease 0.2s both;
+}
+.miamigo-intro__tagline {
+  margin-top: 6px;
+  color: #68776f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  animation: intro-tagline 0.45s ease 1.8s both;
+}
+@keyframes moto-to-mark {
+  0% { opacity: 0; transform: translateX(0) translateY(3px) scale(0.9); }
+  10% { opacity: 1; }
+  72% { opacity: 1; transform: translateX(105px) translateY(-2px) scale(0.9); }
+  90%, 100% { opacity: 0; transform: translateX(123px) translateY(-2px) scale(0.28); }
+}
+@keyframes intro-glow {
+  0% { box-shadow: 0 0 0 0 rgb(184 226 107 / 0%); }
+  45%, 75% { box-shadow: 0 0 0 9px rgb(184 226 107 / 16%), 0 0 48px 12px rgb(104 165 83 / 32%); }
+  100% { box-shadow: 0 0 0 0 rgb(184 226 107 / 0%); }
+}
+@keyframes intro-arrive {
+  from { opacity: 0; transform: translateY(8px) scale(0.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes road-draw {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+@keyframes intro-tagline {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes intro-exit {
+  to { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .miamigo-intro { animation-duration: 0.01ms; animation-delay: 0s; }
+  .miamigo-intro__wordmark, .miamigo-intro__rider, .miamigo-intro__road, .miamigo-intro__tagline, .miamigo-intro__mark {
+    animation-duration: 0.01ms;
+    animation-delay: 0s;
+  }
+}
+.auth-hero img { animation: auth-image-in 0.8s ease-out both; }
+.auth-reveal { animation: auth-content-in 0.55s cubic-bezier(0.2, 0.75, 0.25, 1) both; }
+@keyframes auth-image-in {
+  from { opacity: 0.72; transform: scale(1.035); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes auth-content-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* ===== Gradients repris des maquettes ===== */
 .bg-cta { background-image: linear-gradient(90deg, #F7894F 0%, #F15A24 100%); }

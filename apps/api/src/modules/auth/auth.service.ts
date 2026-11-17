@@ -1,7 +1,8 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { OAuth2Client } from 'google-auth-library';
 import { Model, Types } from 'mongoose';
-import type { MeResponse } from '@plateforme/contracts';
+import { normalizePhone, type MeResponse } from '@plateforme/contracts';
 import { randomToken, sha256 } from '../../common/crypto';
 import { env } from '../../common/env';
 import { AuditService } from '../audit/audit.service';
@@ -129,6 +130,86 @@ export class AuthService {
       await user.save();
     }
     await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.login', entity: 'user', entityId: String(user._id), ...meta });
+    return { user, session: await this.createSession(user._id, meta) };
+  }
+
+  async googleLogin(credential: string, phone: string | undefined, meta: Meta) {
+    const clientId = env().GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new HttpException(
+        { statusCode: 503, error: 'GOOGLE_UNAVAILABLE', message: 'La connexion Google n’est pas encore configurée.' },
+        HttpStatus.SERVICE_UNAVAILABLE,
+      );
+    }
+
+    let payload;
+    try {
+      payload = (await new OAuth2Client(clientId).verifyIdToken({ idToken: credential, audience: clientId })).getPayload();
+    } catch {
+      await this.audit.record({ scope: 'system', action: 'auth.google_login_failed', entity: 'user', after: { reason: 'invalid_credential' }, ...meta });
+      throw new HttpException(
+        { statusCode: 401, error: 'GOOGLE_CREDENTIAL_INVALID', message: 'La vérification Google a échoué. Réessayez.' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+      await this.audit.record({ scope: 'system', action: 'auth.google_login_failed', entity: 'user', after: { reason: 'unverified_identity' }, ...meta });
+      throw new HttpException(
+        { statusCode: 401, error: 'GOOGLE_EMAIL_UNVERIFIED', message: 'Google doit confirmer votre adresse e-mail avant la connexion.' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
+    const email = payload.email.trim().toLowerCase();
+    let user = await this.users.findByGoogleSubject(payload.sub);
+    if (!user) {
+      const byEmail = await this.users.findByEmail(email);
+      if (byEmail) {
+        user = await this.users.linkGoogleAccount(byEmail, payload.sub);
+        if (!user) {
+          const linked = await this.users.findByGoogleSubject(payload.sub);
+          if (!linked || String(linked._id) !== String(byEmail._id)) {
+            throw new HttpException(
+              { statusCode: 409, error: 'GOOGLE_ACCOUNT_LINKED', message: 'Ce compte est déjà associé à un autre compte Google.' },
+              HttpStatus.CONFLICT,
+            );
+          }
+          user = linked;
+        }
+      } else {
+        if (!phone) {
+          throw new HttpException(
+            { statusCode: 422, error: 'GOOGLE_PHONE_REQUIRED', message: 'Ajoutez un numéro de téléphone pour terminer la création de votre compte.' },
+            HttpStatus.UNPROCESSABLE_ENTITY,
+          );
+        }
+        const normalized = normalizePhone(phone);
+        if (!normalized.ok) {
+          throw new HttpException(
+            { statusCode: 400, error: 'INVALID_PHONE', message: 'Saisissez un numéro de téléphone valide.' },
+            HttpStatus.BAD_REQUEST,
+          );
+        }
+        user = await this.users.create({
+          fullName: payload.name?.trim() || email.split('@')[0],
+          phone: normalized.e164,
+          email,
+          password: randomToken(),
+          emailVerified: true,
+          googleSubject: payload.sub,
+        });
+        await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.google_register', entity: 'user', entityId: String(user._id), ...meta });
+      }
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new HttpException(
+        { statusCode: 403, error: 'ACCOUNT_SUSPENDED', message: 'Ce compte est suspendu. Contactez le support.' },
+        HttpStatus.FORBIDDEN,
+      );
+    }
+    await this.audit.record({ actorUserId: String(user._id), scope: 'self', action: 'auth.google_login', entity: 'user', entityId: String(user._id), ...meta });
     return { user, session: await this.createSession(user._id, meta) };
   }
 

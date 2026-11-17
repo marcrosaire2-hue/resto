@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { PlainHeader } from '@/components/client/plain-header';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { ErrorBlock, LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
 import { useSession } from '@/lib/session';
@@ -17,16 +18,16 @@ export default function OrdersPage() {
   useEffect(() => { if (!loading && !me) router.replace('/connexion?suite=/commandes'); }, [loading, me, router]);
   const list = useApi<Row[]>(me ? '/orders' : null);
   return (
-    <MobileScreen className="bg-surface">
+    <MobileScreen wide className="bg-surface">
       <PlainHeader title="Mes commandes" backHref="/accueil" />
-      <main className="flex-1 px-4 pb-6">
+      <main className="flex-1 px-4 pb-28">
         {list.loading || !me ? <LoadingBlock /> : list.error ? <ErrorBlock error={list.error} onRetry={list.reload} /> : list.data!.length === 0 ? (
           <div className="py-12 text-center"><p className="font-semibold">Aucune commande pour le moment</p><Link href="/accueil" className="text-sm font-semibold text-brand">Découvrir les restaurants</Link></div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {list.data!.map((o) => (
               <li key={o.id}>
-                <Link href={`/commandes/${o.id}`} className="flex gap-3 rounded-[8px] border border-line p-2">
+                <Link href={`/commandes/${o.id}`} className="flex gap-3 rounded-2xl border border-line bg-surface p-3 shadow-[var(--shadow-card)] transition-shadow hover:shadow-md">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   {o.imageUrl ? <img src={o.imageUrl} alt="" className="size-16 rounded-[6px] object-cover" /> : <span className="size-16 rounded-[6px] bg-peach" />}
                   <div className="min-w-0 flex-1 text-sm">
@@ -40,6 +41,7 @@ export default function OrdersPage() {
           </ul>
         )}
       </main>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

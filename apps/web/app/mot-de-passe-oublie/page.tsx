@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <AuthShell backHref="/connexion" title="Mot de passe oublié"
+    <AuthShell imageSrc="/demo/menu-3.jpg" backHref="/connexion" title="Mot de passe oublié"
       subtitle={step === 'email' ? 'Indiquez l’adresse e-mail de votre compte : vous recevrez un code à 6 chiffres.' : step === 'code' ? `Si un compte correspond à ${email}, un code vient d’y être envoyé (valable 10 minutes).` : undefined}
       footer={<Link href="/connexion" className="font-semibold text-brand-600 hover:underline">Retour à la connexion</Link>}>
       {step === 'done' ? (

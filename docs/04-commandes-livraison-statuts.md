@@ -73,6 +73,12 @@ Points importants :
 - Un livreur dont les espèces détenues dépassent son plafond n'est plus proposé tant qu'il n'a pas reversé l'argent.
 - Étapes côté livreur : en route → arrivé au restaurant → retrait confirmé → en route vers le client → arrivé → saisie de l'OTP → livré.
 
+### Suivi GPS client
+- La PWA livreur transmet une position réelle uniquement si le livreur a autorisé la géolocalisation.
+- La position n'est renvoyée et diffusée au client propriétaire de la commande qu'après le retrait, pendant `IN_DELIVERY`, pour la livraison active affectée à ce livreur.
+- L'API ne renvoie aucune position avant le retrait, après la fin de la livraison, ni à un autre client. Les événements temps réel sont envoyés dans la salle authentifiée de la commande.
+- Aucune position n'est estimée ou inventée ; si le GPS n'a pas encore fourni de nouvelle position depuis le retrait, le client voit un état d'attente.
+
 ## 4.4 Délais et alertes (valeurs dans `platform_settings`)
 | Événement | Comportement |
 |---|---|

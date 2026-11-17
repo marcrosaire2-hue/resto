@@ -10,8 +10,9 @@ import { LedgerService } from '../ledger/ledger.service';
 import { cloudinaryConfig } from '../media/cloudinary';
 import { assertImageFolder, MediaService } from '../media/media.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { Order } from '../orders/order.schema';
 import { User } from '../users/user.schema';
-import { Courier } from './courier.schemas';
+import { Courier, Delivery } from './courier.schemas';
 
 interface Meta { ip: string | null; userAgent: string | null }
 type C = Courier & { _id: Types.ObjectId };
@@ -20,6 +21,8 @@ type C = Courier & { _id: Types.ObjectId };
 export class CouriersService {
   constructor(
     @InjectModel(Courier.name) private readonly couriers: Model<Courier>,
+    @InjectModel(Delivery.name) private readonly deliveries: Model<Delivery>,
+    @InjectModel(Order.name) private readonly orders: Model<Order>,
     @InjectModel(User.name) private readonly users: Model<User>,
     private readonly media: MediaService,
     private readonly ledger: LedgerService,
@@ -89,8 +92,22 @@ export class CouriersService {
   async updatePosition(userId: string, p: z.output<typeof positionSchema>) {
     const c = await this.requireActive(userId);
     if (!c.isOnline) throw unprocessable('OFFLINE', 'Passez en ligne pour partager votre position.');
-    await this.couriers.updateOne({ _id: c._id }, { lastLat: p.lat, lastLng: p.lng, lastAccuracy: p.accuracy ?? null, lastPositionAt: new Date() });
-    this.realtime.toOps('courier.position', { courierId: String(c._id), lat: p.lat, lng: p.lng, at: new Date().toISOString() });
+    const at = new Date();
+    await this.couriers.updateOne({ _id: c._id }, { lastLat: p.lat, lastLng: p.lng, lastAccuracy: p.accuracy ?? null, lastPositionAt: at });
+    const position = { lat: p.lat, lng: p.lng, accuracy: p.accuracy ?? null, at: at.toISOString() };
+    this.realtime.toOps('courier.position', { courierId: String(c._id), ...position });
+
+    if (c.currentDeliveryId) {
+      const delivery = await this.deliveries.findOne({
+        _id: c.currentDeliveryId, courierId: c._id, active: true, status: { $in: ['PICKED_UP', 'AT_DROPOFF'] },
+      }).lean();
+      if (delivery) {
+        const order = await this.orders.findOne({
+          _id: delivery.orderId, courierId: c._id, status: 'IN_DELIVERY',
+        }).setOptions({ crossTenant: true }).lean();
+        if (order) this.realtime.toOrder(String(order._id), 'courier.position', position);
+      }
+    }
   }
 
   // ---------- Administration ----------

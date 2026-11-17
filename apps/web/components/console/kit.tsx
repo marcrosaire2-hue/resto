@@ -2,6 +2,8 @@
 import { ReactNode, useState } from 'react';
 import { ApiError } from '@/lib/api';
 import { Card } from '../ui';
+import type { AppIconName } from '../ui/app-icon';
+import { AppIcon } from '../ui/app-icon';
 
 export type Msg = { tone: 'success' | 'danger' | 'info'; text: string } | null;
 
@@ -19,8 +21,17 @@ export function useRunner(after?: () => void) {
   return { msg, setMsg, busy, run };
 }
 
-export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
-  return <Card className="p-4"><p className="text-xs text-ink-muted">{label}</p><p className="mt-1 text-xl font-extrabold tabular-nums">{value}</p>{hint && <p className="mt-0.5 text-xs text-ink-muted">{hint}</p>}</Card>;
+export function Stat({ label, value, hint, icon }: { label: string; value: ReactNode; hint?: ReactNode; icon?: AppIconName }) {
+  return (
+    <Card className="p-4 sm:p-5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-xs font-semibold leading-relaxed text-ink-muted">{label}</p>
+        {icon && <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand"><AppIcon name={icon} className="size-[18px]" /></span>}
+      </div>
+      <p className="mt-1 text-xl font-extrabold tabular-nums sm:text-2xl">{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-ink-muted">{hint}</p>}
+    </Card>
+  );
 }
 
 export function Table({ head, children, empty }: { head: string[]; children: ReactNode; empty?: boolean }) {

@@ -8,6 +8,7 @@ export class User {
   @Prop({ required: true, trim: true, maxlength: 120 }) fullName: string;
   @Prop({ required: true, unique: true }) phone: string; // E.164
   @Prop({ type: String, default: null, lowercase: true, trim: true }) email: string | null;
+  @Prop({ type: String, default: null }) googleSubject: string | null;
   @Prop({ required: true, select: false }) passwordHash: string;
   @Prop({ type: Date, default: null }) phoneVerifiedAt: Date | null;
   @Prop({ type: Date, default: null }) emailVerifiedAt: Date | null;
@@ -24,3 +25,4 @@ export class User {
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
 UserSchema.index({ email: 1 }, { unique: true, partialFilterExpression: { email: { $type: 'string' } } });
+UserSchema.index({ googleSubject: 1 }, { unique: true, partialFilterExpression: { googleSubject: { $type: 'string' } } });

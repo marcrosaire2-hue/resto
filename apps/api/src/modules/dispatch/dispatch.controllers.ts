@@ -52,6 +52,17 @@ export class CourierController {
   @Get('earnings') earnings(@CurrentAuth() a: AuthContext) { return this.deliveries.earnings(a.userId); }
 }
 
+@ApiTags('client')
+@Controller('orders')
+export class CustomerTrackingController {
+  constructor(private readonly deliveries: DeliveriesService) {}
+
+  @Get(':orderId/tracking')
+  tracking(@CurrentAuth() a: AuthContext, @Param('orderId') id: string) {
+    return this.deliveries.trackingForCustomer(a.userId, toObjectId(id));
+  }
+}
+
 @ApiTags('operations')
 @Controller('ops')
 export class OpsController {

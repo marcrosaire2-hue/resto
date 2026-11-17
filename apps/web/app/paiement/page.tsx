@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import type { Quote } from '@plateforme/contracts';
 import { AddressForm, SavedAddress } from '@/components/client/address-form';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { PlainHeader } from '@/components/client/plain-header';
 import { LoadingBlock } from '@/components/client/states';
 import { MobileScreen } from '@/components/mobile';
@@ -85,13 +86,13 @@ export default function CheckoutPage() {
     }
   }
 
-  if (!me || addresses.loading) return <MobileScreen className="bg-surface"><LoadingBlock /></MobileScreen>;
+  if (!me || addresses.loading) return <MobileScreen wide className="bg-surface"><LoadingBlock /></MobileScreen>;
   const blocking = (quote?.blocking ?? []).filter((b) => b.code !== 'ADDRESS_REQUIRED' || !adding);
 
   return (
-    <MobileScreen className="bg-surface">
-      <PlainHeader title="Paiement" backHref="/panier" />
-      <main className="flex-1 space-y-5 px-4 pb-4">
+    <MobileScreen wide className="bg-surface" contentClassName="md:grid md:grid-cols-[minmax(0,1.3fr)_minmax(320px,.7fr)] md:items-start md:gap-x-6 md:px-8">
+      <PlainHeader title="Paiement" backHref="/panier" className="md:col-span-2 md:!w-full" />
+      <main className="flex-1 space-y-5 px-4 pb-8 md:col-start-1 md:row-start-2 md:w-full md:px-6">
         <section>
           <p className="mb-2 font-semibold">Adresse de livraison</p>
           <div className="space-y-2" role="radiogroup" aria-label="Adresse de livraison">
@@ -149,7 +150,7 @@ export default function CheckoutPage() {
           </section>
         )}
       </main>
-      <footer className="sticky bottom-0 space-y-2 bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 text-sm">
+      <footer className="sticky bottom-0 space-y-2 bg-surface px-4 pb-24 pt-3 text-sm md:col-start-2 md:row-start-2 md:top-24 md:bottom-auto md:self-start md:rounded-2xl md:border md:border-line md:px-5 md:py-5 md:shadow-[var(--shadow-card)]">
         {quote && <>
           <div className="flex justify-between"><span>Sous-total</span><span className="tabular-nums">{fcfa(quote.itemsSubtotal)}</span></div>
           {quote.restaurantDiscount > 0 && <div className="flex justify-between text-success"><span>Promotions</span><span>−{fcfa(quote.restaurantDiscount)}</span></div>}
@@ -164,6 +165,7 @@ export default function CheckoutPage() {
           className="mt-1 h-12 w-full rounded-[8px] bg-brand font-semibold text-white disabled:opacity-50">{busy ? 'Envoi…' : method === 'MOBILE_MONEY' ? 'Payer par Mobile Money' : 'Passer la commande'}</button>
         <p className="text-center text-[11px] text-ink-muted">{method === 'MOBILE_MONEY' ? 'Vous serez redirigé vers la page sécurisée FedaPay. Le restaurant reçoit la commande dès le paiement confirmé.' : 'Vous payez en espèces à la remise de la commande.'}</p>
       </footer>
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

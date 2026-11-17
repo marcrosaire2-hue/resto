@@ -58,7 +58,7 @@ function ResetForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthShell backHref={'/connexion'} title="Nouveau mot de passe" subtitle="Toutes vos sessions ouvertes seront fermées par sécurité.">
+    <AuthShell imageSrc="/demo/plat-zuppa.jpg" backHref={'/connexion'} title="Nouveau mot de passe" subtitle="Toutes vos sessions ouvertes seront fermées par sécurité.">
       <Suspense><ResetForm /></Suspense>
     </AuthShell>
   );

@@ -93,6 +93,10 @@ describe('Scénario 1 complet — de la commande à la remise avec code', () => 
 
     expect((await L.client.post(`/api/courier/offers/${deliveryId}/accept`)).status).toBe(201);
     expect((await c.client.get(`/api/orders/${orderId}`)).body.status).toBe('COURIER_ASSIGNED');
+    await L.client.post('/api/courier/position', { lat: 6.3703, lng: 2.3912, accuracy: 10 }).expect(204);
+    expect((await c.client.get(`/api/orders/${orderId}/tracking`)).body).toEqual({ available: false, position: null });
+    const outsider = await m.customer();
+    expect((await outsider.client.get(`/api/orders/${orderId}/tracking`)).status).toBe(404);
     const active = await L.client.get('/api/courier/active');
     expect(active.body.customer.phone).toMatch(/^\+229/);
     expect(active.body.cashToCollect).toBe((await c.client.get(`/api/orders/${orderId}`)).body.total);
@@ -101,6 +105,10 @@ describe('Scénario 1 complet — de la commande à la remise avec code', () => 
     await L.client.post(`/api/courier/deliveries/${deliveryId}/arrived-pickup`).expect(201);
     await L.client.post(`/api/courier/deliveries/${deliveryId}/picked-up`).expect(201);
     expect((await c.client.get(`/api/orders/${orderId}`)).body.status).toBe('IN_DELIVERY');
+    await L.client.post('/api/courier/position', { lat: 6.371, lng: 2.392, accuracy: 8 }).expect(204);
+    const tracking = await c.client.get(`/api/orders/${orderId}/tracking`);
+    expect(tracking.body).toMatchObject({ available: true, position: { lat: 6.371, lng: 2.392, accuracy: 8 } });
+    expect(tracking.body.position.at).toEqual(expect.any(String));
     await L.client.post(`/api/courier/deliveries/${deliveryId}/arrived-dropoff`).expect(201);
 
     const code = (await c.client.get(`/api/orders/${orderId}`)).body.deliveryCode as string;
@@ -114,6 +122,7 @@ describe('Scénario 1 complet — de la commande à la remise avec code', () => 
 
     const final = await c.client.get(`/api/orders/${orderId}`);
     expect(final.body).toMatchObject({ status: 'DELIVERED', paymentStatus: 'SUCCEEDED' });
+    expect((await c.client.get(`/api/orders/${orderId}/tracking`)).body).toEqual({ available: false, position: null });
     const tx = await db(t).collection('ledger_transactions').findOne({ reference: orderId });
     const accounts = tx!.entries.map((e: { account: string }) => e.account);
     expect(accounts).toContain(`clearing:cash:${L.courierId}`);
@@ -258,4 +267,3 @@ describe('Incidents', () => {
     expect(done.body.events.map((e: { action: string }) => e.action)).toEqual(['Ouverture', 'Prise en charge', 'Note', 'Statut : RESOLVED', 'Résolution']);
   });
 });
-

@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { PlainHeader } from '@/components/client/plain-header';
+import { CustomerNavigation } from '@/components/client/customer-navigation';
 import { MobileScreen } from '@/components/mobile';
 import { useCart } from '@/lib/cart';
 import { useSession } from '@/lib/session';
@@ -22,10 +23,10 @@ export default function CartPage() {
   const act = async (key: string, fn: () => Promise<void>) => { setBusy(key); try { await fn(); } finally { setBusy(null); } };
 
   return (
-    <MobileScreen className="bg-surface">
-      <PlainHeader title="Mon panier" backHref={cart.restaurantSlug ? `/restaurants/${cart.restaurantSlug}` : '/accueil'} />
-      {cart.restaurantName && <p className="px-4 pb-2 text-sm text-ink-muted">Restaurant : <span className="font-semibold text-ink">{cart.restaurantName}</span></p>}
-      <main className="flex-1 space-y-3 px-4">
+    <MobileScreen wide className="bg-surface" contentClassName="md:grid md:grid-cols-[minmax(0,1.5fr)_minmax(300px,.8fr)] md:grid-rows-[auto_auto_1fr] md:items-start md:gap-x-6 md:px-8">
+      <PlainHeader title="Mon panier" backHref={cart.restaurantSlug ? `/restaurants/${cart.restaurantSlug}` : '/accueil'} className="md:col-span-2 md:!w-full" />
+      {cart.restaurantName && <p className="px-4 pb-2 text-sm text-ink-muted md:col-span-2 md:px-0">Restaurant : <span className="font-semibold text-ink">{cart.restaurantName}</span></p>}
+      <main className={`flex-1 space-y-3 px-4 pb-4 ${rows.length ? 'md:col-start-1 md:row-start-3 md:w-full md:px-6' : 'md:col-span-2 md:row-start-3'}`}>
         {rows.length === 0 && (
           <div className="rounded-[10px] border border-line p-6 text-center">
             <p className="font-semibold">{cart.loading ? 'Chargement…' : 'Votre panier est vide'}</p>
@@ -33,7 +34,7 @@ export default function CartPage() {
           </div>
         )}
         {rows.map((l) => (
-          <div key={l.key} className={`flex gap-3 rounded-[8px] border p-2 ${l.problem ? 'border-danger' : 'border-line'}`}>
+          <div key={l.key} className={`flex gap-3 rounded-2xl border bg-surface p-3 shadow-[var(--shadow-card)] ${l.problem ? 'border-danger' : 'border-line'}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {l.imageUrl ? <img src={l.imageUrl} alt={l.name} className="size-[68px] shrink-0 rounded-[6px] object-cover" /> : <span className="size-[68px] shrink-0 rounded-[6px] bg-peach" />}
             <div className="flex min-w-0 flex-1 flex-col">
@@ -56,7 +57,7 @@ export default function CartPage() {
         ))}
       </main>
       {rows.length > 0 && (
-        <footer className="sticky bottom-0 space-y-3 bg-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <footer className="sticky bottom-0 space-y-3 bg-surface px-4 pb-24 pt-3 md:col-start-2 md:row-start-3 md:top-24 md:bottom-auto md:self-start md:rounded-2xl md:border md:border-line md:px-5 md:py-5 md:shadow-[var(--shadow-card)]">
           <button type="button" onClick={() => setCoupon((v) => !v)} className="flex w-full items-center justify-between text-sm">
             <span>🏷️ Vous avez un code promo ?</span><span aria-hidden>›</span>
           </button>
@@ -73,6 +74,7 @@ export default function CartPage() {
           </Link>
         </footer>
       )}
+      <CustomerNavigation />
     </MobileScreen>
   );
 }

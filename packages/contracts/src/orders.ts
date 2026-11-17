@@ -182,6 +182,11 @@ export interface OrderView {
   createdAt: string; acceptDeadlineAt: string | null; seq: number; delayMinutes: number;
 }
 
+export interface OrderTrackingView {
+  available: boolean;
+  position: { lat: number; lng: number; accuracy: number | null; at: string } | null;
+}
+
 export interface KitchenTicket {
   id: string; number: string; status: OrderStatus; createdAt: string; statusChangedAt: string; delayMinutes: number; customerNote: string;
   items: { name: string; qty: number; optionLabels: string[]; instructions: string }[];
