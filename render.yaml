@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: resto-api
+    name: miamigo-api
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     dockerfilePath: ./infra/api.Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
@@ -15,9 +15,9 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: WEB_ORIGIN
-        value: https://resto-web.onrender.com
+        value: https://miamigo-web.onrender.com
       - key: APP_PUBLIC_URL
-        value: https://resto-web.onrender.com
+        value: https://miamigo-web.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: TRUST_PROXY
@@ -49,21 +49,21 @@ services:
       - key: MAIL_FROM_EMAIL
         sync: false
       - key: MAIL_FROM_NAME
-        value: Marketplace Cotonou
+        value: Miamigo
       - key: GOOGLE_CLIENT_ID
         sync: false
 
   - type: web
-    name: resto-web
+    name: miamigo-web
     runtime: docker
     region: frankfurt
-    plan: standard
+    plan: free
     dockerfilePath: ./infra/web.Dockerfile
     dockerContext: .
     envVars:
       - key: API_INTERNAL_URL
-        value: http://resto-api:10000
+        value: https://miamigo-api.onrender.com
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: https://resto-api.onrender.com
+        value: https://miamigo-api.onrender.com
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
