@@ -37,7 +37,7 @@ services:
       - key: MEDIA_FOLDER_PREFIX
         value: plateforme
       - key: FEDAPAY_ENV
-        value: sandbox
+        value: live
       - key: FEDAPAY_SECRET_KEY
         sync: false
       - key: FEDAPAY_PUBLIC_KEY
