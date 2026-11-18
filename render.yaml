@@ -15,9 +15,9 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: WEB_ORIGIN
-        value: https://miamigo-web.onrender.com
+        value: https://miamigo.onrender.com
       - key: APP_PUBLIC_URL
-        value: https://miamigo-web.onrender.com
+        value: https://miamigo.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: TRUST_PROXY
@@ -54,7 +54,7 @@ services:
         sync: false
 
   - type: web
-    name: miamigo-web
+    name: miamigo
     runtime: docker
     region: frankfurt
     plan: free
