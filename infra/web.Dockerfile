@@ -7,9 +7,10 @@ RUN npm ci --workspace @plateforme/web --workspace @plateforme/contracts --inclu
 COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
 COPY apps/web apps/web
-# API_INTERNAL_URL est lu à la construction pour le proxy /api (next.config.ts)
+# Ces valeurs sont lues à la construction (next.config.ts et bundle client NEXT_PUBLIC_*)
 ARG API_INTERNAL_URL=http://api:4000
-ENV API_INTERNAL_URL=$API_INTERNAL_URL NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_SOCKET_URL=
+ENV API_INTERNAL_URL=$API_INTERNAL_URL NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL NEXT_TELEMETRY_DISABLED=1
 RUN npm run build -w @plateforme/contracts && npm run build -w @plateforme/web
 
 FROM node:22-bookworm-slim
