@@ -24,6 +24,7 @@ import { MenuModule } from './modules/menu/menu.module';
 import { CsrfGuard, SessionGuard } from './modules/auth/auth.guards';
 import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/brevo.mailer';
+import { CronModule } from './modules/cron/cron.module';
 import { HealthModule } from './modules/health/health.module';
 import { MediaModule } from './modules/media/media.module';
 import { PlatformStaffModule } from './modules/platform-staff/platform-staff.module';
@@ -63,6 +64,7 @@ import { SettingsModule } from './modules/settings/settings.module';
     PlatformStaffModule,
     MediaModule,
     HealthModule,
+    CronModule,
   ],
   providers: [
     // Ordre d'exécution : limitation de débit → CSRF → session.

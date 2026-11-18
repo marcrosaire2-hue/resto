@@ -27,6 +27,7 @@ export class OrdersScheduler implements OnApplicationBootstrap, OnApplicationShu
 
   onApplicationBootstrap() {
     if (env().NODE_ENV === 'test') return; // les tests appellent runOnce() explicitement
+    if (env().BACKGROUND_JOBS === 'cron') return; // déclenché par /api/internal/cron (Vercel Cron)
     this.timer = setInterval(() => void this.runOnce().catch((e) => this.logger.error((e as Error).message)), 30_000);
   }
   onApplicationShutdown() {

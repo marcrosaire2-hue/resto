@@ -27,6 +27,13 @@ const schema = z
     MAIL_FROM_EMAIL: z.string().optional(),
     MAIL_FROM_NAME: z.string().default('Marketplace Cotonou'),
     GOOGLE_CLIENT_ID: z.string().trim().optional(),
+    /**
+     * Tâches de fond (délais restaurant, alertes livreur) : « interval » = minuterie interne toutes les 30 s (serveur permanent) ;
+     * « cron » = déclenchées de l'extérieur par les routes /api/internal/cron/* (hébergement sans serveur, ex. Vercel).
+     */
+    BACKGROUND_JOBS: z.enum(['interval', 'cron']).default(process.env.VERCEL ? 'cron' : 'interval'),
+    /** Secret exigé par les routes /api/internal/cron/* (en-tête « Authorization: Bearer … », envoyé par Vercel Cron). */
+    CRON_SECRET: z.string().min(16, 'CRON_SECRET doit faire au moins 16 caractères').optional(),
     /** Réservé aux tests (serveur Brevo de test local). */
     BREVO_API_URL: z.url().optional(),
     /** Réservé aux tests (serveur FedaPay de test local). */
@@ -35,6 +42,10 @@ const schema = z
   .refine((e) => !e.FEDAPAY_SECRET_KEY || e.FEDAPAY_SECRET_KEY.startsWith(`sk_${e.FEDAPAY_ENV}_`) || !!e.FEDAPAY_API_URL, {
     message: 'La clé FedaPay ne correspond pas à FEDAPAY_ENV (sk_sandbox_… ou sk_live_…)',
     path: ['FEDAPAY_SECRET_KEY'],
+  })
+  .refine((e) => e.BACKGROUND_JOBS !== 'cron' || !!e.CRON_SECRET || e.NODE_ENV !== 'production', {
+    message: 'CRON_SECRET est requis en production quand BACKGROUND_JOBS=cron (sinon les délais ne seraient jamais vérifiés)',
+    path: ['CRON_SECRET'],
   })
   .refine((e) => e.NODE_ENV !== 'production' || e.COOKIE_SECURE, {
     message: 'COOKIE_SECURE doit valoir true en production',
