@@ -29,6 +29,7 @@ import utensils from '@iconify-icons/lucide/utensils';
 import userRound from '@iconify-icons/lucide/user-round';
 import users from '@iconify-icons/lucide/users';
 import wallet from '@iconify-icons/lucide/wallet';
+import plus from '@iconify-icons/lucide/plus';
 import { cn } from './cn';
 
 const icons = {
@@ -62,6 +63,7 @@ const icons = {
   'user-round': userRound,
   users,
   wallet,
+  plus,
 } as const;
 
 export type AppIconName = keyof typeof icons;
