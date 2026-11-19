@@ -376,3 +376,8 @@ body {
 .au-note b { color: var(--au-o); font-weight: 500; }
 .au-resend { display: inline-block; margin: 14px 0 18px; font-size: 14px; color: var(--au-o); text-decoration: underline; text-underline-offset: 3px; background: none; border: 0; padding: 0; }
 .au-resend:disabled { color: #a3a8b1; text-decoration: none; }
+
+/* Confettis de l'écran « Commande livrée ». */
+@keyframes confetti-drop { 0% { opacity: 0; translate: 0 -14px; } 20% { opacity: 1; } 100% { opacity: 1; translate: 0 6px; } }
+.confetti-bit { animation: confetti-drop .7s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .confetti-bit { animation: none; } }

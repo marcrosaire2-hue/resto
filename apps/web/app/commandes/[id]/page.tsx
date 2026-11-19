@@ -29,10 +29,10 @@ function ReviewBox({ orderId }: { orderId: string }) {
   if (mine.data.review) {
     const r = mine.data.review;
     return (
-      <div className="rounded-[6px] border border-line p-3 text-sm">
-        <p className="font-semibold">Votre avis : <span className="text-warning">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span></p>
+      <div id="avis" className="scroll-mt-6 rounded-2xl border border-line bg-white p-4 text-sm">
+        <p className="font-bold">Votre avis : <span className="text-star">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span></p>
         {r.comment && <p className="mt-1 text-ink-muted">{r.comment}</p>}
-        {r.reply && <p className="mt-2 rounded-[6px] bg-brand-50 p-2"><b>Réponse du restaurant :</b> {r.reply}</p>}
+        {r.reply && <p className="mt-2 rounded-xl bg-brand-50 p-2.5"><b>Réponse du restaurant :</b> {r.reply}</p>}
       </div>
     );
   }
@@ -42,17 +42,45 @@ function ReviewBox({ orderId }: { orderId: string }) {
     catch (e) { setErr(e instanceof ApiError ? e.message : 'Avis non envoyé.'); }
   }
   return (
-    <div className="space-y-2 rounded-[6px] border border-brand p-3 text-sm">
-      <p className="font-semibold">Comment s’est passée votre commande ?</p>
+    <div id="avis" className="scroll-mt-6 space-y-3 rounded-2xl border-2 border-brand bg-white p-4 text-sm">
+      <p className="text-[15px] font-extrabold">Comment s’est passée votre commande ?</p>
       <div className="flex gap-1" role="radiogroup" aria-label="Note">
         {[1, 2, 3, 4, 5].map((n) => (
-          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} étoile${n > 1 ? 's' : ''}`} onClick={() => setRating(n)} className={`text-3xl ${n <= rating ? 'text-warning' : 'text-line'}`}>★</button>
+          <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} étoile${n > 1 ? 's' : ''}`} onClick={() => setRating(n)} className={`text-4xl leading-none ${n <= rating ? 'text-star' : 'text-line'}`}>★</button>
         ))}
       </div>
-      <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={2} placeholder="Votre commentaire (facultatif)" className="w-full rounded-[6px] border border-line p-2" />
+      <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={2} placeholder="Votre commentaire (facultatif)" className="w-full rounded-xl border border-line bg-[#F6F6F8] p-3 outline-none focus:border-brand focus:bg-white" />
       {err && <p className="text-danger">{err}</p>}
-      <button type="button" disabled={!rating} onClick={send} className="h-10 w-full rounded-[6px] bg-brand font-semibold text-white disabled:opacity-50">Publier mon avis</button>
+      <button type="button" disabled={!rating} onClick={send} className="bg-cta h-12 w-full rounded-2xl font-bold text-white shadow-[var(--shadow-raised)] disabled:opacity-50">Publier mon avis</button>
     </div>
+  );
+}
+
+
+const CONFETTI = [
+  [8, 14, '#F7790F', 20], [18, 4, '#2FA84F', -35], [30, 20, '#F5A623', 50], [44, 6, '#e8483a', 15], [58, 16, '#2FA84F', -20], [70, 5, '#F7790F', 40],
+  [82, 18, '#F5A623', -50], [92, 8, '#e8483a', 25], [4, 38, '#F5A623', 60], [95, 40, '#2FA84F', -30], [14, 56, '#e8483a', 10], [88, 58, '#F7790F', -45],
+] as const;
+
+/** Écran « Commande livrée » : grand rond vert coché, confettis, photo du plat, boutons Détails / Noter. */
+function DeliveredHero({ imageUrl, onDetails, onRate }: { imageUrl: string | null; onDetails: () => void; onRate: () => void }) {
+  return (
+    <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-b from-[#FFF3E8] to-white px-5 pb-6 pt-8 text-center">
+      <div aria-hidden>
+        {CONFETTI.map(([x, y, c, r], i) => <i key={i} className="confetti-bit absolute block h-2.5 w-1.5 rounded-sm" style={{ left: `${x}%`, top: `${y}%`, background: c, transform: `rotate(${r}deg)`, animationDelay: `${i * 90}ms` }} />)}
+      </div>
+      <span className="relative mx-auto grid size-24 place-items-center rounded-full bg-success text-5xl font-bold text-white shadow-[0_12px_30px_rgb(47_168_79/0.35)]" aria-hidden>✓</span>
+      <h2 className="relative mt-5 text-[26px] font-extrabold tracking-tight">Commande livrée !</h2>
+      <p className="relative mt-1 text-[15px] text-ink-muted">Bon appétit !</p>
+      {imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="" className="relative mx-auto mt-5 h-36 w-full max-w-[280px] rounded-2xl object-cover shadow-[var(--shadow-card)]" />
+      )}
+      <div className="relative mt-6 space-y-3">
+        <button type="button" onClick={onDetails} className="bg-cta h-14 w-full rounded-2xl text-[16px] font-bold text-white shadow-[var(--shadow-raised)]">Voir le détail de la commande</button>
+        <button type="button" onClick={onRate} className="h-14 w-full rounded-2xl border-2 border-brand text-[16px] font-bold text-brand">Noter votre expérience</button>
+      </div>
+    </section>
   );
 }
 
@@ -125,6 +153,11 @@ function OrderDetails() {
     <MobileScreen wide className="client-brand bg-white">
       <PlainHeader title="Suivi de commande" backHref="/commandes" />
       <main className="mx-auto w-full max-w-[720px] flex-1 space-y-4 px-5 pb-28">
+        {o.status === 'DELIVERED' ? (
+          <DeliveredHero imageUrl={o.items[0]?.imageUrl ?? null}
+            onDetails={() => document.getElementById('details')?.scrollIntoView({ behavior: 'smooth' })}
+            onRate={() => document.getElementById('avis')?.scrollIntoView({ behavior: 'smooth' })} />
+        ) : (
         <section className="overflow-hidden rounded-[28px] bg-[#1c1c1e] text-white">
           {o.status === 'IN_DELIVERY' && tracking.data?.position ? (
             <TrackingMap position={tracking.data.position} />
@@ -145,8 +178,9 @@ function OrderDetails() {
             {tracking.error && <p role="alert" className="mt-2 text-xs text-[#ffb4b4]">{tracking.error.message} <button type="button" onClick={tracking.reload} className="font-bold underline">Réessayer</button></p>}
           </div>
         </section>
+        )}
 
-        {stage >= 0 && (
+        {stage >= 0 && o.status !== 'DELIVERED' && (
           <ol className="grid grid-cols-4" aria-label="Avancement de la commande">
             {STAGES.map((label, i) => (
               <li key={label} className="relative flex flex-col items-center gap-1.5 text-center">
@@ -173,7 +207,7 @@ function OrderDetails() {
           </div>
         )}
 
-        <section className={card}>
+        <section id="details" className={`${card} scroll-mt-6`}>
           <p className="mb-2 text-[15px] font-extrabold">Articles</p>
           <ul className="space-y-1.5">{o.items.map((i, k) => (
             <li key={k} className="flex justify-between gap-3"><span className="min-w-0">{i.qty} × {i.name}{i.optionLabels.length ? <span className="text-ink-muted"> ({i.optionLabels.join(', ')})</span> : null}</span><span className="shrink-0 font-semibold">{fcfa(i.lineTotal)}</span></li>
@@ -211,9 +245,9 @@ function OrderDetails() {
         {msg && <p className="rounded-2xl bg-danger-50 p-4 text-sm text-danger">{msg}</p>}
         <div className="grid grid-cols-2 gap-3">
           {o.status === 'PENDING' || o.status === 'AWAITING_PAYMENT'
-            ? <button type="button" disabled={cancelling} onClick={cancel} className="h-12 rounded-2xl border-2 border-brand font-bold text-brand">Annuler</button>
-            : <a href={o.restaurant.phone ? `tel:${o.restaurant.phone}` : undefined} className={`grid h-12 place-items-center rounded-2xl border-2 border-brand font-bold text-brand ${o.restaurant.phone ? '' : 'pointer-events-none opacity-50'}`}>Appeler le restaurant</a>}
-          <Link href="/accueil" className="bg-cta grid h-12 place-items-center rounded-2xl font-bold text-white shadow-[var(--shadow-raised)]">Commander encore</Link>
+            ? <button type="button" disabled={cancelling} onClick={cancel} className="h-12 rounded-2xl border-2 border-brand px-2 text-[14px] font-bold text-brand">Annuler</button>
+            : <a href={o.restaurant.phone ? `tel:${o.restaurant.phone}` : undefined} className={`grid h-12 place-items-center rounded-2xl border-2 border-brand px-2 text-center text-[14px] font-bold leading-tight text-brand ${o.restaurant.phone ? '' : 'pointer-events-none opacity-50'}`}>Appeler le restaurant</a>}
+          <Link href="/accueil" className="bg-cta grid h-12 place-items-center rounded-2xl px-2 text-center text-[14px] font-bold leading-tight text-white shadow-[var(--shadow-raised)]">Commander encore</Link>
         </div>
         <Link href={`/aide?commande=${o.id}`} className="block text-center text-sm font-semibold text-brand">Un problème avec cette commande ?</Link>
       </main>
