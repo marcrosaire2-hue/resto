@@ -1,10 +1,19 @@
 'use client';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { ONBOARDED_KEY } from '@/lib/onboarding';
 import { useSession } from '@/lib/session';
 
 /** Écran 1 — Lancement : photo de plat sur fond sombre, logo officiel (version claire), « Commencer » et connexion. */
 export default function SplashPage() {
   const { me } = useSession();
+  const router = useRouter();
+  // Première visite : présentation en 3 étapes (écran 2) ; ensuite, directement la connexion.
+  const start = () => {
+    let seen = false;
+    try { seen = localStorage.getItem(ONBOARDED_KEY) === '1'; } catch { /* navigation privée */ }
+    router.push(me ? '/accueil' : seen ? '/connexion' : '/bienvenue');
+  };
   return (
     <main className="client-brand relative isolate flex min-h-dvh flex-col overflow-hidden bg-[#141110] text-white">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -20,10 +29,10 @@ export default function SplashPage() {
 
         <div className="flex-1" />
 
-        <Link href={me ? '/accueil' : '/connexion'}
+        <button type="button" onClick={start}
           className="bg-cta flex h-14 w-full items-center justify-center rounded-2xl text-[15px] font-bold text-white shadow-[var(--shadow-raised)] transition-transform active:scale-[.98]">
           {me ? 'Commander' : 'Commencer'}
-        </Link>
+        </button>
         {!me && (
           <p className="mt-4 text-sm text-white/85">
             Déjà un compte ? <Link href="/connexion" className="font-bold text-white hover:underline">Se connecter</Link>
