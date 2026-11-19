@@ -44,6 +44,8 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 :focus-visible { outline: 3px solid var(--color-brand-100); outline-offset: 2px; }
+/* Champ nu dans un cadre arrondi : le contour de focus est porté par le cadre (focus-within), pas par le champ. */
+.bare-input:focus-visible { outline: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; } }
 
 /* A responsive, locally bundled visual identity for the customer experience. */

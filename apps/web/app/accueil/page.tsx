@@ -73,10 +73,10 @@ export default function HomePage() {
         </header>
 
         <form onSubmit={onSearch} role="search">
-          <label className="flex h-[52px] items-center gap-3 rounded-2xl bg-[#F3F3F5] px-4">
+          <label className="flex h-[52px] items-center gap-3 rounded-2xl bg-[#F3F3F5] px-4 ring-2 ring-transparent transition-shadow focus-within:bg-white focus-within:ring-brand/50">
             <IconSearch className="size-5 text-ink-muted" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Rechercher un restaurant ou un plat…" aria-label="Rechercher un restaurant ou un plat" enterKeyHint="search"
-              className="h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-muted" />
+              className="bare-input h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-muted" />
           </label>
         </form>
 

@@ -56,10 +56,10 @@ export default function SearchPage() {
           </button>
         )} />
       <div className="desktop-search-tools mx-auto w-full max-w-[1100px] space-y-3 px-4 md:px-8">
-        <label className="flex h-[50px] items-center gap-3 rounded-2xl bg-[#F3F3F5] px-4">
+        <label className="flex h-[50px] items-center gap-3 rounded-2xl bg-[#F3F3F5] px-4 ring-2 ring-transparent transition-shadow focus-within:bg-white focus-within:ring-brand/50">
           <IconSearch className="size-5 text-ink-muted" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Restaurant, plat, quartier…" aria-label="Rechercher" enterKeyHint="search"
-            className="h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-muted" />
+            className="bare-input h-full w-full bg-transparent text-sm outline-none placeholder:text-ink-muted" />
         </label>
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:px-0" role="group" aria-label="Filtres rapides">
           <Pill on={noFilter} onClick={() => { setCuisine(null); setOpenOnly(false); setSort('popular'); }}>Tous</Pill>
