@@ -48,27 +48,29 @@ body {
 
 /* A responsive, locally bundled visual identity for the customer experience. */
 .client-brand {
-  --color-brand: #17684A;
-  --color-brand-600: #0F513A;
-  --color-brand-50: #EAF4EA;
-  --color-brand-100: #CDE4D0;
-  --color-wine: #7A423A;
-  --color-canvas: #F7F8F3;
-  --color-ink: #1D3028;
-  --color-ink-muted: #68776F;
-  --color-line: #E2E9E0;
-  --color-success: #27845C;
-  --color-success-50: #E7F4EA;
-  --color-peach: #E8F1E5;
-  --color-peach-200: #D7E8D2;
-  --color-backdrop: #EFF2EA;
-  --color-star: #F5B700;
-  --shadow-raised: 0 8px 28px rgb(23 104 74 / 0.22);
+  /* Thème client « orange gourmand » (maquette 2026-11). */
+  --color-brand: #F7790F;
+  --color-brand-600: #DD6500;
+  --color-brand-50: #FFF3E8;
+  --color-brand-100: #FFE0C2;
+  --color-wine: #B9471B;
+  --color-canvas: #F7F7F8;
+  --color-ink: #1C1C1E;
+  --color-ink-muted: #707075;
+  --color-line: #ECECEE;
+  --color-success: #2FA84F;
+  --color-success-50: #E9F7EE;
+  --color-peach: #FFF3E8;
+  --color-peach-200: #FFE0C2;
+  --color-backdrop: #F4F1EC;
+  --color-star: #F5A623;
+  --shadow-card: 0 1px 2px rgb(28 28 30 / 0.04), 0 6px 18px rgb(28 28 30 / 0.07);
+  --shadow-raised: 0 10px 24px rgb(247 121 15 / 0.30);
 }
-.client-brand .bg-cta { background-image: linear-gradient(100deg, #17684A 0%, #0F513A 100%); }
-.client-brand .bg-header-orange { background-image: linear-gradient(140deg, #17684A 0%, #0F513A 100%); }
+.client-brand .bg-cta { background-image: linear-gradient(100deg, #FF8A1F 0%, #F26B00 100%); }
+.client-brand .bg-header-orange { background-image: linear-gradient(140deg, #FF8A1F 0%, #F26B00 100%); }
 .client-brand .bg-hero {
-  background-image: radial-gradient(120% 90% at 100% 0%, #DDEBC8 0%, transparent 55%), radial-gradient(90% 70% at 0% 100%, #EAF4EA 0%, transparent 60%);
+  background-image: radial-gradient(120% 90% at 100% 0%, #FFE0C2 0%, transparent 55%), radial-gradient(90% 70% at 0% 100%, #FFF3E8 0%, transparent 60%);
 }
 .client-wide { width: 100%; max-width: none; margin-inline: auto; }
 

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: 'Les bonnes tables de Cotonou, vos plats préférés et une livraison locale simple avec Miamigo.',
 };
 
-export const viewport: Viewport = { themeColor: '#17684A', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#F7790F', width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
