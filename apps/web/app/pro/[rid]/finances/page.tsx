@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { PageTitle } from '@/components/console/console-shell';
 import { date, inputCls, Stat, Table, toInputDate } from '@/components/console/kit';
-import { Card, Spinner } from '@/components/ui';
+import { Alert, Card, Spinner } from '@/components/ui';
+import { api, ApiError } from '@/lib/api';
 import { useProRestaurant } from '@/lib/pro';
 import { fcfa, useApi } from '@/lib/use-api';
 
@@ -11,7 +12,52 @@ interface Statement {
   totalEarned: number; totalPaidOut: number; refundsBorne: number; balance: number; pendingPayouts: number;
   payouts: { id: string; amount: number; status: string; method: string; reference: string | null; paidAt: string | null; createdAt: string }[];
 }
-const STATUS: Record<string, string> = { PENDING_APPROVAL: 'En préparation', APPROVED: 'Approuvé', PAID: 'Payé', REJECTED: 'Rejeté', CANCELLED: 'Annulé' };
+const STATUS: Record<string, string> = { PENDING_APPROVAL: 'En préparation', APPROVED: 'Approuvé', PROCESSING: 'Virement en cours', FAILED: 'Échec (relancé par l’équipe)', PAID: 'Payé', REJECTED: 'Rejeté', CANCELLED: 'Annulé' };
+
+
+/** Numéro Mobile Money sur lequel le restaurant reçoit l'argent de ses commandes payées en ligne (virement automatique après livraison). */
+function PayoutAccountCard({ rid }: { rid: string }) {
+  const acc = useApi<{ account: { provider: 'MTN_MOMO' | 'MOOV_MONEY'; numberMasked: string } | null }>(`/restaurants/${rid}/payout-account`);
+  const [provider, setProvider] = useState<'MTN_MOMO' | 'MOOV_MONEY'>('MTN_MOMO');
+  const [number, setNumber] = useState('');
+  const [msg, setMsg] = useState<{ tone: 'success' | 'danger'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const label = (p: string) => (p === 'MOOV_MONEY' ? 'Moov Money' : 'MTN MoMo');
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg(null);
+    try {
+      await api(`/restaurants/${rid}/payout-account`, { method: 'PUT', body: { provider, number } });
+      setNumber('');
+      acc.reload();
+      setMsg({ tone: 'success', text: 'Numéro enregistré. Vos prochains versements arriveront sur ce numéro.' });
+    } catch (err) {
+      setMsg({ tone: 'danger', text: err instanceof ApiError ? (err.fieldErrors().number ?? err.message) : 'Enregistrement impossible.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card className="mb-4 p-4 text-sm">
+      <p className="font-bold">Numéro de réception de vos paiements</p>
+      <p className="mt-1 text-xs text-ink-muted">Après chaque livraison payée en ligne, votre part (montant moins commission) est envoyée automatiquement sur ce numéro Mobile Money. Seul le propriétaire peut le modifier.</p>
+      {acc.data && (acc.data.account
+        ? <p className="mt-3 rounded-[10px] bg-success-50 px-3 py-2">Actuel : <b>{label(acc.data.account.provider)}</b> · <span className="font-mono">{acc.data.account.numberMasked}</span></p>
+        : <p className="mt-3 rounded-[10px] bg-warning-50 px-3 py-2 text-warning">Aucun numéro défini : vous ne recevrez pas de virement automatique tant que vous n’en enregistrez pas un.</p>)}
+      <form onSubmit={save} className="mt-3 flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-1">Opérateur
+          <select value={provider} onChange={(e) => setProvider(e.target.value as 'MTN_MOMO' | 'MOOV_MONEY')} className={inputCls}><option value="MTN_MOMO">MTN MoMo</option><option value="MOOV_MONEY">Moov Money</option></select>
+        </label>
+        <label className="flex min-w-[200px] flex-1 flex-col gap-1">Numéro
+          <input value={number} onChange={(e) => setNumber(e.target.value)} inputMode="tel" placeholder="01 97 00 00 00" className={inputCls} />
+        </label>
+        <button type="submit" disabled={busy || number.trim().length < 8} className="h-10 rounded-[10px] bg-brand px-4 font-semibold text-white disabled:opacity-50">{busy ? 'Enregistrement…' : acc.data?.account ? 'Remplacer le numéro' : 'Enregistrer'}</button>
+      </form>
+      {msg && <div className="mt-3"><Alert tone={msg.tone}>{msg.text}</Alert></div>}
+    </Card>
+  );
+}
 
 /** Finances du restaurant : ventes livrées, commissions, solde à recevoir et versements, avec export. */
 export default function ProFinancesPage() {
@@ -24,6 +70,7 @@ export default function ProFinancesPage() {
   return (
     <>
       <PageTitle title="Finances">Montants calculés à partir des commandes livrées et du grand livre.</PageTitle>
+      <PayoutAccountCard rid={rid} />
       <Card className="mb-4 flex flex-wrap items-end gap-3 p-4 text-sm">
         <label className="flex flex-col gap-1">Du<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls} /></label>
         <label className="flex flex-col gap-1">Au<input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} /></label>

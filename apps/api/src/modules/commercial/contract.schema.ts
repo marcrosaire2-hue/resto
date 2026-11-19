@@ -8,6 +8,8 @@ export class RestaurantContract {
   @Prop({ type: Number, required: true, min: 0, max: 10_000, validate: Number.isInteger }) commissionRateBps: number;
   @Prop({ type: Date, required: true }) validFrom: Date;
   @Prop({ type: Date, default: null }) validTo: Date | null;
+  /** FREE : mois gratuit d'ouverture ; STANDARD : commission standard qui suit ; CUSTOM : contrat saisi par l'administration. */
+  @Prop({ type: String, enum: ['FREE', 'STANDARD', 'CUSTOM'], default: 'CUSTOM' }) kind: 'FREE' | 'STANDARD' | 'CUSTOM';
   @Prop({ type: String, default: null }) reference: string | null;
   @Prop({ type: Types.ObjectId, required: true }) createdBy: Types.ObjectId;
 }

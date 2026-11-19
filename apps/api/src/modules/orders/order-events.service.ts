@@ -81,6 +81,15 @@ export class OrderEventsService {
         title: `Commande ${o.number} — ${STATUS_LABELS_FR[status]}`, body: reason ? `${msg} Motif : ${reason}` : msg, link: `/commandes/${o._id}`,
       });
     }
+    if (status === 'DELIVERED' && o.finance) {
+      const pct = `${o.finance.commissionRateBps / 100} %`.replace('.', ',');
+      const fee = o.finance.commissionAmount > 0 ? `commission ${o.finance.commissionAmount} FCFA (${pct})` : 'aucune commission (période gratuite)';
+      await this.notifications.notify({
+        userIds: await this.restaurantUsers(o.restaurantId, 'finance.restaurant.view'), eventKey: `order:${o._id}:delivered:restaurant`, type: 'order.delivered_earnings',
+        title: `Commande ${o.number} livrée`, body: `Vous recevez ${o.finance.restaurantNet} FCFA — ${fee}.${o.paymentMethod === 'MOBILE_MONEY' ? ' Le virement part automatiquement sur votre numéro de réception.' : ''}`,
+        link: `/pro/${o.restaurantId}/finances`,
+      });
+    }
     // acceptDeadlineAt nul : commande jamais transmise au restaurant (paiement non abouti).
     if (status === 'CANCELLED' && o.acceptDeadlineAt) {
       await this.notifications.notify({

@@ -49,6 +49,8 @@ export class Restaurant {
   @Prop({ type: Date, default: null }) publishedAt: Date | null;
   @Prop({ type: MongooseSchema.Types.Mixed, default: null }) draft: Record<string, unknown> | null;
   @Prop({ type: String, default: '' }) searchText: string;
+  /** Numéro Mobile Money de réception des versements (défini par le propriétaire). Les virements automatiques n'existent que s'il est renseigné. */
+  @Prop({ type: { provider: { type: String }, number: { type: String } }, default: null, _id: false }) payoutAccount: { provider: 'MTN_MOMO' | 'MOOV_MONEY'; number: string } | null;
   /** Contenu de démonstration (script seed:demo) : affiché avec la mention « Démo », interdit en production. */
   @Prop({ type: Boolean, default: false }) isDemo: boolean;
   createdAt: Date;

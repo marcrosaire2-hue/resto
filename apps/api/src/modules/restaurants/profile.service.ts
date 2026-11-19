@@ -2,11 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { z } from 'zod';
-import { hoursSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
+import { hoursSchema, payoutAccountSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
 import { notFound, unprocessable } from '../../common/errors';
 import { searchText } from '../../common/search';
 import { slugify } from '../../common/slug';
 import { AuditService } from '../audit/audit.service';
+import { ContractsService } from '../commercial/contracts.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CuisinesService } from '../cuisines/cuisines.service';
 import { GeoService } from '../geo/geo.service';
 import { DeliveryZone } from '../geo/geo.schemas';
@@ -19,6 +21,8 @@ interface Meta { ip: string | null; userAgent: string | null }
 type Profile = z.output<typeof restaurantProfileSchema>;
 const PROFILE_KEYS = ['name', 'description', 'phone', 'whatsapp', 'email', 'address', 'neighborhoodId', 'cuisineIds', 'avgPrepMinutes', 'logoPublicId', 'coverPublicId'] as const;
 const MAX_PENDING_APPLICATIONS = 3;
+/** Numéro partiellement masqué (« +2290••••••43 ») : jamais renvoyé en clair par l'API. */
+export const maskNumber = (n: string) => `${n.slice(0, 5)}${'•'.repeat(Math.max(0, n.length - 7))}${n.slice(-2)}`;
 
 @Injectable()
 export class RestaurantProfileService {
@@ -31,6 +35,8 @@ export class RestaurantProfileService {
     private readonly cuisines: CuisinesService,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly contracts: ContractsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async uniqueSlug(name: string, exceptId?: Types.ObjectId) {
@@ -84,6 +90,20 @@ export class RestaurantProfileService {
     const status: RestaurantStatus = decision === 'approve' ? 'ACTIVE' : 'REJECTED';
     await this.restaurants.updateOne({ _id: id }, { status, statusReason: reason });
     await this.audit.record({ actorUserId: actor, scope: 'platform', restaurantId: String(id), action: `restaurant.${decision}`, entity: 'restaurant', entityId: String(id), before: { status: r.status }, after: { status, reason }, ...meta });
+    if (decision === 'approve') {
+      // Mois gratuit puis commission standard (réglages de la plateforme) ; le propriétaire est prévenu des conditions.
+      const plan = await this.contracts.startDefaultPlan(id, actor).catch(() => null);
+      const pct = (bps: number) => `${bps / 100} %`.replace('.', ',');
+      await this.notifications.notify({
+        userIds: [r.createdBy], eventKey: `restaurant:${id}:approved`, type: 'restaurant.approved', title: 'Votre restaurant est validé !',
+        body: plan
+          ? (plan.freeUntil
+            ? `Votre premier mois est gratuit : aucune commission jusqu'au ${plan.freeUntil.toLocaleDateString('fr-FR')}. Ensuite, ${pct(plan.standardBps)} de commission par commande livrée. Pensez à enregistrer votre numéro de réception dans Finances.`
+            : `Commission de ${pct(plan.standardBps)} par commande livrée. Pensez à enregistrer votre numéro de réception dans Finances.`)
+          : 'Vous pouvez maintenant compléter votre vitrine et recevoir des commandes.',
+        link: `/pro/${id}/finances`,
+      }).catch(() => undefined);
+    }
     return { id: String(id), status };
   }
 
@@ -169,5 +189,25 @@ export class RestaurantProfileService {
     await this.restaurants.updateOne({ _id: restaurantId }, { acceptingOrders: accepting });
     await this.audit.record({ actorUserId: actor, scope: 'restaurant', restaurantId, action: 'restaurant.accepting_toggle', entity: 'restaurant', entityId: restaurantId, after: { acceptingOrders: accepting }, ...meta });
     return { acceptingOrders: accepting };
+  }
+
+  /** Compte de réception des versements (masqué). */
+  async getPayoutAccount(restaurantId: string) {
+    const r = await this.restaurants.findById(restaurantId, { payoutAccount: 1 }).lean();
+    if (!r) throw notFound();
+    return { account: r.payoutAccount ? { provider: r.payoutAccount.provider, numberMasked: maskNumber(r.payoutAccount.number) } : null };
+  }
+
+  /** Définit le numéro Mobile Money sur lequel le restaurant reçoit ses versements (propriétaire uniquement, journalisé). */
+  async setPayoutAccount(restaurantId: string, account: z.output<typeof payoutAccountSchema>, actor: string, meta: Meta) {
+    const before = await this.restaurants.findById(restaurantId, { payoutAccount: 1 }).lean();
+    if (!before) throw notFound();
+    await this.restaurants.updateOne({ _id: restaurantId }, { payoutAccount: { provider: account.provider, number: account.number } });
+    await this.audit.record({
+      actorUserId: actor, scope: 'restaurant', restaurantId, action: 'restaurant.payout_account_set', entity: 'restaurant', entityId: restaurantId,
+      before: before.payoutAccount ? { provider: before.payoutAccount.provider, numberMasked: maskNumber(before.payoutAccount.number) } : null,
+      after: { provider: account.provider, numberMasked: maskNumber(account.number) }, ...meta,
+    });
+    return this.getPayoutAccount(restaurantId);
   }
 }

@@ -10,6 +10,9 @@ export const COURIER_DOC_TYPES = ['ID_CARD', 'DRIVING_LICENSE', 'VEHICLE_PAPERS'
 export const COURIER_DOC_LABELS: Record<(typeof COURIER_DOC_TYPES)[number], string> = { ID_CARD: 'Pièce d’identité', DRIVING_LICENSE: 'Permis de conduire', VEHICLE_PAPERS: 'Papiers du véhicule' };
 export const PAYOUT_PROVIDERS = ['MTN_MOMO', 'MOOV_MONEY'] as const;
 
+/** Numéro Mobile Money sur lequel un restaurant (ou un livreur) reçoit ses versements. */
+export const payoutAccountSchema = z.object({ provider: z.enum(PAYOUT_PROVIDERS), number: phoneSchema });
+
 export const courierApplicationSchema = z.object({
   vehicleType: z.enum(VEHICLE_TYPES),
   plate: z.string().trim().max(20).optional().transform((v) => v || null),

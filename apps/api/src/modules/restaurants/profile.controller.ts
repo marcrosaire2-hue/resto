@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Put, Req } from '@nestjs/com
 import { ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
-import { hoursSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
+import { hoursSchema, payoutAccountSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
 import { env } from '../../common/env';
 import { toObjectId } from '../../common/object-id';
 import { AppRequest, AuthContext, CurrentAuth, CurrentTenant, requestMeta, TenantContext } from '../../common/request-context';
@@ -48,6 +48,18 @@ export class RestaurantProfileController {
   @RequirePermission('restaurant.profile.edit')
   publish(@CurrentTenant() t: TenantContext, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) {
     return this.service.publish(t.restaurantId, a.userId, requestMeta(r));
+  }
+
+  @Get('restaurants/:restaurantId/payout-account')
+  @RequirePermission('payouts.view')
+  payoutAccount(@CurrentTenant() t: TenantContext) {
+    return this.service.getPayoutAccount(t.restaurantId);
+  }
+
+  @Put('restaurants/:restaurantId/payout-account')
+  @RequirePermission('payouts.account.edit')
+  setPayoutAccount(@CurrentTenant() t: TenantContext, @Body(new ZodPipe(payoutAccountSchema)) b: z.output<typeof payoutAccountSchema>, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) {
+    return this.service.setPayoutAccount(t.restaurantId, b, a.userId, requestMeta(r));
   }
 
   @Put('restaurants/:restaurantId/hours')

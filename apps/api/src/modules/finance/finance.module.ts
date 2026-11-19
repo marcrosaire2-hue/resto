@@ -4,9 +4,11 @@ import { Courier, CourierSchema } from '../couriers/courier.schemas';
 import { Order, OrderSchema } from '../orders/order.schema';
 import { OrdersModule } from '../orders/orders.module';
 import { User, UserSchema } from '../users/user.schema';
+import { FedapayClient } from '../payments/fedapay.client';
 import { FinanceController, RestaurantFinanceController } from './finance.controller';
 import { CashRemittance, CashRemittanceSchema, Payout, PayoutSchema, Refund, RefundSchema } from './finance.schemas';
 import { FinanceService } from './finance.service';
+import { PayoutsScheduler } from './payouts.scheduler';
 import { ReportsService } from './reports.service';
 
 @Module({
@@ -22,7 +24,7 @@ import { ReportsService } from './reports.service';
     ]),
   ],
   controllers: [FinanceController, RestaurantFinanceController],
-  providers: [FinanceService, ReportsService],
+  providers: [FinanceService, ReportsService, FedapayClient, PayoutsScheduler],
   exports: [FinanceService],
 })
 export class FinanceModule {}

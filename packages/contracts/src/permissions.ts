@@ -29,6 +29,7 @@ export const PERMISSIONS = {
   'kitchen.update': { scope: 'restaurant', label: "Agir sur l'écran cuisine" },
   'finance.restaurant.view': { scope: 'restaurant', label: 'Voir les finances du restaurant' },
   'payouts.view': { scope: 'restaurant', label: 'Voir les versements' },
+  'payouts.account.edit': { scope: 'restaurant', label: 'Définir le numéro de réception des versements' },
   'staff.view': { scope: 'restaurant', label: 'Voir le personnel' },
   'staff.manage': { scope: 'restaurant', label: 'Gérer le personnel' },
   'staff.audit.view': { scope: 'restaurant', label: "Voir l'historique des actions" },

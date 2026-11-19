@@ -27,6 +27,8 @@ const schema = z
     MAIL_FROM_EMAIL: z.string().optional(),
     MAIL_FROM_NAME: z.string().default('Marketplace Cotonou'),
     GOOGLE_CLIENT_ID: z.string().trim().optional(),
+    /** Virements automatiques aux restaurants après livraison (FedaPay Payouts). « off » par défaut : à activer explicitement une fois les versements activés sur le compte FedaPay. */
+    AUTO_PAYOUTS: z.enum(['on', 'off']).default('off'),
     /** Réservé aux tests (serveur Brevo de test local). */
     BREVO_API_URL: z.url().optional(),
     /** Réservé aux tests (serveur FedaPay de test local). */
