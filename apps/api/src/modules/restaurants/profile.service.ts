@@ -7,6 +7,8 @@ import { notFound, unprocessable } from '../../common/errors';
 import { searchText } from '../../common/search';
 import { slugify } from '../../common/slug';
 import { AuditService } from '../audit/audit.service';
+import { ContractsService } from '../commercial/contracts.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CuisinesService } from '../cuisines/cuisines.service';
 import { GeoService } from '../geo/geo.service';
 import { DeliveryZone } from '../geo/geo.schemas';
@@ -33,6 +35,8 @@ export class RestaurantProfileService {
     private readonly cuisines: CuisinesService,
     private readonly media: MediaService,
     private readonly audit: AuditService,
+    private readonly contracts: ContractsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async uniqueSlug(name: string, exceptId?: Types.ObjectId) {
@@ -86,6 +90,20 @@ export class RestaurantProfileService {
     const status: RestaurantStatus = decision === 'approve' ? 'ACTIVE' : 'REJECTED';
     await this.restaurants.updateOne({ _id: id }, { status, statusReason: reason });
     await this.audit.record({ actorUserId: actor, scope: 'platform', restaurantId: String(id), action: `restaurant.${decision}`, entity: 'restaurant', entityId: String(id), before: { status: r.status }, after: { status, reason }, ...meta });
+    if (decision === 'approve') {
+      // Mois gratuit puis commission standard (réglages de la plateforme) ; le propriétaire est prévenu des conditions.
+      const plan = await this.contracts.startDefaultPlan(id, actor).catch(() => null);
+      const pct = (bps: number) => `${bps / 100} %`.replace('.', ',');
+      await this.notifications.notify({
+        userIds: [r.createdBy], eventKey: `restaurant:${id}:approved`, type: 'restaurant.approved', title: 'Votre restaurant est validé !',
+        body: plan
+          ? (plan.freeUntil
+            ? `Votre premier mois est gratuit : aucune commission jusqu'au ${plan.freeUntil.toLocaleDateString('fr-FR')}. Ensuite, ${pct(plan.standardBps)} de commission par commande livrée. Pensez à enregistrer votre numéro de réception dans Finances.`
+            : `Commission de ${pct(plan.standardBps)} par commande livrée. Pensez à enregistrer votre numéro de réception dans Finances.`)
+          : 'Vous pouvez maintenant compléter votre vitrine et recevoir des commandes.',
+        link: `/pro/${id}/finances`,
+      }).catch(() => undefined);
+    }
     return { id: String(id), status };
   }
 

@@ -18,14 +18,15 @@ export async function marketplace(t: TestEnv) {
   await admin.put('/api/admin/settings/orders.service_fee_fcfa', { value: TEST.serviceFee }).expect(200);
   await admin.put('/api/admin/settings/orders.restaurant_response_minutes', { value: 10 }).expect(200);
 
-  async function restaurant(name: string) {
+  /** `manualContract: false` : pas de contrat saisi à la main (le plan automatique des réglages s'applique). */
+  async function restaurant(name: string, opts: { manualContract?: boolean } = {}) {
     const owner = await registeredClient(t.app, `Propriétaire ${name}`);
     const rid = (await owner.client.post('/api/restaurant-applications', { name, phone: owner.phone, neighborhoodId: hood, address: 'Rue A', cuisineIds: [cuisine] })).body.id as string;
     await owner.client.put(`/api/restaurants/${rid}/hours`, HOURS).expect(200);
     await owner.client.post(`/api/restaurants/${rid}/profile/publish`).expect(201);
     await admin.post(`/api/admin/restaurants/${rid}/review`, { decision: 'approve' }).expect(201);
     await owner.client.put(`/api/restaurants/${rid}/zones`, { zoneIds: [zone] }).expect(200);
-    await admin.put(`/api/admin/restaurants/${rid}/contract`, { commissionRateBps: TEST.commissionBps }).expect(200);
+    if (opts.manualContract !== false) await admin.put(`/api/admin/restaurants/${rid}/contract`, { commissionRateBps: TEST.commissionBps }).expect(200);
     await owner.client.patch(`/api/restaurants/${rid}/accepting-orders`, { acceptingOrders: true }).expect(200);
     const cat = await owner.client.post(`/api/restaurants/${rid}/menu/categories`, { name: 'Plats' });
     const p = await owner.client.post(`/api/restaurants/${rid}/menu/products`, { menuCategoryId: cat.body.id, name: 'Poulet braisé', basePrice: 3000 });

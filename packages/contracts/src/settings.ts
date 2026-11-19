@@ -17,6 +17,8 @@ export const SETTINGS = {
   'couriers.offer_expiry_seconds': { schema: z.number().int().min(15).max(900), label: "Durée de validité d'une offre de course (secondes)" },
   'delivery.customer_wait_minutes': { schema: minutes, label: "Attente du client avant échec de livraison (minutes)" },
   'finance.refund_double_approval_threshold_fcfa': { schema: fcfa, label: 'Seuil de double validation des remboursements (FCFA)' },
+  'commission.standard_bps': { schema: z.number().int().min(0).max(10_000), label: 'Commission standard après le mois gratuit (points de base : 1500 = 15 %)' },
+  'commission.free_months': { schema: z.number().int().min(0).max(24), label: "Mois gratuits (0 % de commission) à l'ouverture d'un restaurant (0 = aucun)" },
   'auth.max_failed_logins': { schema: z.number().int().min(3).max(20), label: 'Tentatives de connexion avant verrouillage' },
 } as const;
 

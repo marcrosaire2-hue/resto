@@ -5,6 +5,7 @@ import { Connection, Model, Types } from 'mongoose';
 import { env } from '../../common/env';
 import { conflict, forbidden, notFound, unprocessable } from '../../common/errors';
 import { AuditService } from '../audit/audit.service';
+import { ContractsService } from '../commercial/contracts.service';
 import { Courier } from '../couriers/courier.schemas';
 import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -41,6 +42,7 @@ export class FinanceService {
     private readonly notifications: NotificationsService,
     private readonly events: OrderEventsService,
     private readonly fedapay: FedapayClient,
+    private readonly contracts: ContractsService,
   ) {}
 
   private async inTx<T>(fn: (s: import('mongoose').ClientSession) => Promise<T>) {
@@ -252,6 +254,10 @@ export class FinanceService {
       });
       await this.payouts.updateOne({ _id: id }, { providerPayoutId: created.id, providerStatus: created.status, attempts: attempt, lastError: null });
       await this.fedapay.startPayout(created.id);
+      await this.notifications.notify({
+        userIds: await this.events.restaurantUsers(p.beneficiaryId, 'payouts.view'), eventKey: `payout:${id}:started:${attempt}`, type: 'payout.started',
+        title: 'Virement en cours', body: `${p.amount} FCFA sont en cours d'envoi sur votre numéro Mobile Money — ${p.note}.`, link: `/pro/${p.beneficiaryId}/finances`,
+      }).catch(() => undefined);
     } catch (e) {
       await this.failAutoPayout(id, e instanceof Error ? e.message : 'Erreur inconnue');
     }
@@ -264,6 +270,10 @@ export class FinanceService {
     await this.notifications.notify({
       userIds: await this.events.opsUsers(), eventKey: `payout:${id}:failed:${p.attempts}`, type: 'payout.failed',
       title: 'Versement automatique en échec', body: `${p.amount} FCFA — ${p.note}. ${p.lastError ?? ''}`.trim(), link: '/admin/finances',
+    });
+    await this.notifications.notify({
+      userIds: await this.events.restaurantUsers(p.beneficiaryId, 'payouts.view'), eventKey: `payout:${id}:failed:restaurant:${p.attempts}`, type: 'payout.failed',
+      title: "Votre virement n'a pas abouti", body: `${p.amount} FCFA (${p.note}). Vérifiez votre numéro de réception dans Finances : notre équipe a été prévenue et relancera le virement.`, link: `/pro/${p.beneficiaryId}/finances`,
     });
   }
 
@@ -312,6 +322,28 @@ export class FinanceService {
     await this.audit.record({ actorUserId: actor, scope: 'platform', action: 'finance.payout_auto_retry', entity: 'payout', entityId: String(id), ...meta });
     await this.startAutoPayout(id);
     return { id: String(id), status: (await this.payouts.findById(id, { status: 1 }).lean())?.status };
+  }
+
+  /**
+   * Prévient les restaurants : 7 jours avant la fin du mois gratuit, puis à son terme (avec le taux qui s'applique ensuite).
+   * Idempotent (clé d'événement unique par contrat) : peut tourner à chaque passage.
+   */
+  async contractNotices() {
+    const { ending, ended } = await this.contracts.freePeriodNotices();
+    const pct = (bps: number) => `${bps / 100} %`.replace('.', ',');
+    for (const c of ending) {
+      await this.notifications.notify({
+        userIds: await this.events.restaurantUsers(c.restaurantId, 'finance.restaurant.view'), eventKey: `contract:${c.id}:ending`, type: 'contract.free_ending',
+        title: 'Votre mois gratuit se termine bientôt', body: `Aucune commission jusqu'au ${c.endsAt.toLocaleDateString('fr-FR')}. Ensuite, ${pct(c.nextBps!)} de commission par commande livrée.`, link: `/pro/${c.restaurantId}/finances`,
+      });
+    }
+    for (const c of ended) {
+      await this.notifications.notify({
+        userIds: await this.events.restaurantUsers(c.restaurantId, 'finance.restaurant.view'), eventKey: `contract:${c.id}:ended`, type: 'contract.free_ended',
+        title: 'Votre mois gratuit est terminé', body: `Depuis le ${c.endsAt.toLocaleDateString('fr-FR')}, une commission de ${pct(c.nextBps!)} est retenue sur chaque commande livrée ; le reste vous est versé.`, link: `/pro/${c.restaurantId}/finances`,
+      });
+    }
+    return { ending: ending.length, ended: ended.length };
   }
 
   // ---------- Remboursements ----------
