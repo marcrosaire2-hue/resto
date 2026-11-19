@@ -257,6 +257,22 @@ describe('Robustesse de la création de commande', () => {
     await c.client.post('/api/cart/items', { replace: true, item: { productId: B.product.id, qty: 1, variants: { [B.product.variantGroups[0].id]: B.product.variantGroups[0].options[0].id } } }).expect(204);
     expect((await c.client.get('/api/cart')).body.restaurant.name).toBe('Panier B');
   });
+
+  it('la quantité d’une ligne se modifie (PATCH) et la ligne se retire à 0', async () => {
+    const R = await restaurant('Panier quantités');
+    const c = await customer();
+    await fillCart(c.client, R, 2); // 2 × (Grande + Alloco) = 9000
+    const line = (await c.client.get('/api/cart')).body.lines[0];
+    expect(line.qty).toBe(2);
+    await c.client.patch('/api/cart/items', { key: line.key, qty: 4 }).expect(204);
+    const up = (await c.client.get('/api/cart')).body;
+    expect(up.lines[0].qty).toBe(4);
+    expect(up.itemsSubtotal).toBe(18000);
+    await c.client.patch('/api/cart/items', { key: line.key, qty: 1 }).expect(204);
+    expect((await c.client.get('/api/cart')).body.lines[0].qty).toBe(1);
+    await c.client.patch('/api/cart/items', { key: line.key, qty: 0 }).expect(204);
+    expect((await c.client.get('/api/cart')).body.lines).toEqual([]);
+  });
 });
 
 describe('Isolation et permissions sur les commandes (API)', () => {

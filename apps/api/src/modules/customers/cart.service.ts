@@ -44,8 +44,11 @@ export class CartService {
   async setQty(userId: string, key: string, qty: number) {
     const uid = new Types.ObjectId(userId);
     const cart = await this.carts.findOne({ userId: uid });
-    if (!cart?.items.some((i) => i.key === key)) throw notFound('Ligne introuvable.');
-    const items = qty > 0 ? cart.items.map((i) => (i.key === key ? { ...i, qty: Math.min(99, qty) } : i)) : cart.items.filter((i) => i.key !== key);
+    const line = cart?.items.find((i) => i.key === key);
+    if (!cart || !line) throw notFound('Ligne introuvable.');
+    // On modifie la ligne elle-même (comme add) : copier un sous-document Mongoose avec { ...i } ne conservait pas la nouvelle quantité.
+    if (qty > 0) line.qty = Math.min(99, qty);
+    const items = qty > 0 ? cart.items : cart.items.filter((i) => i.key !== key);
     await this.carts.updateOne({ userId: uid }, { items, ...(items.length ? {} : { restaurantId: null }) });
   }
 

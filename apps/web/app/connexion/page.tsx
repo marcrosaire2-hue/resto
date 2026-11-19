@@ -3,9 +3,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { FormEvent, Suspense, useState } from 'react';
 import { loginSchema, type MeResponse } from '@plateforme/contracts';
-import { AuthShell } from '@/components/auth-shell';
+import { AuAlert, AuField, AuPage, AuPassword } from '@/components/auth/au';
 import { GoogleSignIn } from '@/components/google-sign-in';
-import { Alert, Button, Field } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { validate } from '@/lib/forms';
 import { useSession } from '@/lib/session';
@@ -15,7 +14,8 @@ function safeNext(v: string | null) {
   return v && v.startsWith('/') && !v.startsWith('//') ? v : '/accueil';
 }
 
-function LoginForm() {
+/** Connexion client — modèle épuré : logo, titre centré, champs gris clair, bouton plein. */
+function Login() {
   const router = useRouter();
   const params = useSearchParams();
   const { setMe } = useSession();
@@ -23,6 +23,7 @@ function LoginForm() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const next = safeNext(params.get('suite'));
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -33,7 +34,7 @@ function LoginForm() {
     setLoading(true);
     try {
       setMe(await api<MeResponse>('/auth/login', { method: 'POST', body: values }));
-      router.replace(safeNext(params.get('suite')));
+      router.replace(next);
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Une erreur est survenue.');
     } finally {
@@ -42,35 +43,38 @@ function LoginForm() {
   }
 
   return (
-    <div className="space-y-5">
-    <form onSubmit={onSubmit} noValidate className="space-y-5">
-      {formError && <Alert tone="danger">{formError}</Alert>}
-      <Field label="Téléphone ou e-mail" name="identifier" autoComplete="username" inputMode="text" placeholder="01 97 00 00 00"
-        value={values.identifier} onChange={(e) => setValues({ ...values, identifier: e.target.value })} error={errors.identifier} />
-      <Field label="Mot de passe" name="password" type="password" autoComplete="current-password"
-        value={values.password} onChange={(e) => setValues({ ...values, password: e.target.value })} error={errors.password} />
-      <div className="flex justify-end">
-        <Link href="/mot-de-passe-oublie" className="text-sm font-semibold text-brand-600 hover:underline">Mot de passe oublié ?</Link>
-      </div>
-      <Button type="submit" block size="lg" loading={loading}>Se connecter</Button>
-    </form>
-    <div className="relative py-1 text-center">
-      <span className="bg-canvas px-3 text-xs font-medium text-ink-muted">ou continuer avec</span>
-      <span className="absolute inset-x-0 top-1/2 -z-10 border-t border-line" aria-hidden />
-    </div>
-    <GoogleSignIn onAuthenticated={(user) => {
-      setMe(user);
-      router.replace(safeNext(params.get('suite')));
-    }} />
-    </div>
+    <AuPage>
+      <form onSubmit={onSubmit} noValidate>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="au-illus" src="/brand/miamigo-logo.png" alt="Miamigo" width={900} height={716} />
+        <h1 className="au-title" style={{ marginTop: 0 }}>Connexion</h1>
+        <p className="au-lead">Bon retour !</p>
+        <p>Connectez-vous à votre compte</p>
+
+        <AuAlert>{formError}</AuAlert>
+        <AuField id="identifier" label="Téléphone ou e-mail" error={errors.identifier}>
+          <input id="identifier" name="identifier" autoComplete="username" placeholder="01 97 00 00 00 ou exemple@gmail.com"
+            value={values.identifier} aria-invalid={!!errors.identifier || undefined} onChange={(e) => setValues({ ...values, identifier: e.target.value })} />
+        </AuField>
+        <AuField id="password" label="Mot de passe" error={errors.password}>
+          <AuPassword id="password" value={values.password} placeholder="Votre mot de passe" invalid={!!errors.password}
+            onChange={(v) => setValues({ ...values, password: v })} />
+        </AuField>
+        <Link href="/mot-de-passe-oublie" className="au-forgot">Mot de passe oublié ?</Link>
+        <button className="au-btn" disabled={loading}>{loading ? 'Connexion…' : 'Se connecter'}</button>
+      </form>
+
+      <div className="au-or" style={{ marginTop: 18 }}>ou</div>
+      <GoogleSignIn onAuthenticated={(user) => { setMe(user); router.replace(next); }} />
+
+      <p className="au-alt">
+        Pas encore de compte ?{' '}
+        <Link href={`/inscription${next !== '/accueil' ? `?suite=${encodeURIComponent(next)}` : ''}`}>S’inscrire</Link>
+      </p>
+    </AuPage>
   );
 }
 
 export default function LoginPage() {
-  return (
-    <AuthShell title="Bon retour parmi nous" subtitle="Connectez-vous pour commander et suivre vos livraisons." imageSrc="/demo/plat-detail.jpg"
-      footer={<>Pas encore de compte ? <Link href="/inscription" className="font-semibold text-brand-600 hover:underline">Créer un compte</Link></>}>
-      <Suspense><LoginForm /></Suspense>
-    </AuthShell>
-  );
+  return <Suspense><Login /></Suspense>;
 }
