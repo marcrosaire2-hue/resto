@@ -15,9 +15,9 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: WEB_ORIGIN
-        value: https://miamigo.onrender.com
+        value: https://miamigo-dfgo.onrender.com
       - key: APP_PUBLIC_URL
-        value: https://miamigo.onrender.com
+        value: https://miamigo-dfgo.onrender.com
       - key: COOKIE_SECURE
         value: "true"
       - key: TRUST_PROXY
