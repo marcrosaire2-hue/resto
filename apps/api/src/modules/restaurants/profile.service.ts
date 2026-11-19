@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { Connection, Model, Types } from 'mongoose';
 import { z } from 'zod';
-import { hoursSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
+import { hoursSchema, payoutAccountSchema, restaurantApplicationSchema, restaurantProfileSchema } from '@plateforme/contracts';
 import { notFound, unprocessable } from '../../common/errors';
 import { searchText } from '../../common/search';
 import { slugify } from '../../common/slug';
@@ -19,6 +19,8 @@ interface Meta { ip: string | null; userAgent: string | null }
 type Profile = z.output<typeof restaurantProfileSchema>;
 const PROFILE_KEYS = ['name', 'description', 'phone', 'whatsapp', 'email', 'address', 'neighborhoodId', 'cuisineIds', 'avgPrepMinutes', 'logoPublicId', 'coverPublicId'] as const;
 const MAX_PENDING_APPLICATIONS = 3;
+/** Numéro partiellement masqué (« +2290••••••43 ») : jamais renvoyé en clair par l'API. */
+export const maskNumber = (n: string) => `${n.slice(0, 5)}${'•'.repeat(Math.max(0, n.length - 7))}${n.slice(-2)}`;
 
 @Injectable()
 export class RestaurantProfileService {
@@ -169,5 +171,25 @@ export class RestaurantProfileService {
     await this.restaurants.updateOne({ _id: restaurantId }, { acceptingOrders: accepting });
     await this.audit.record({ actorUserId: actor, scope: 'restaurant', restaurantId, action: 'restaurant.accepting_toggle', entity: 'restaurant', entityId: restaurantId, after: { acceptingOrders: accepting }, ...meta });
     return { acceptingOrders: accepting };
+  }
+
+  /** Compte de réception des versements (masqué). */
+  async getPayoutAccount(restaurantId: string) {
+    const r = await this.restaurants.findById(restaurantId, { payoutAccount: 1 }).lean();
+    if (!r) throw notFound();
+    return { account: r.payoutAccount ? { provider: r.payoutAccount.provider, numberMasked: maskNumber(r.payoutAccount.number) } : null };
+  }
+
+  /** Définit le numéro Mobile Money sur lequel le restaurant reçoit ses versements (propriétaire uniquement, journalisé). */
+  async setPayoutAccount(restaurantId: string, account: z.output<typeof payoutAccountSchema>, actor: string, meta: Meta) {
+    const before = await this.restaurants.findById(restaurantId, { payoutAccount: 1 }).lean();
+    if (!before) throw notFound();
+    await this.restaurants.updateOne({ _id: restaurantId }, { payoutAccount: { provider: account.provider, number: account.number } });
+    await this.audit.record({
+      actorUserId: actor, scope: 'restaurant', restaurantId, action: 'restaurant.payout_account_set', entity: 'restaurant', entityId: restaurantId,
+      before: before.payoutAccount ? { provider: before.payoutAccount.provider, numberMasked: maskNumber(before.payoutAccount.number) } : null,
+      after: { provider: account.provider, numberMasked: maskNumber(account.number) }, ...meta,
+    });
+    return this.getPayoutAccount(restaurantId);
   }
 }

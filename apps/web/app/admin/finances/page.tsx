@@ -9,7 +9,7 @@ import { fcfa, useApi } from '@/lib/use-api';
 
 interface Overview { revenue: { commission: number; delivery: number; service: number }; expenses: { promotions: number; refunds: number; deliverySubsidy: number }; owedToRestaurants: number; owedToCouriers: number; cashHeldByCouriers: number; pendingPayouts: number; pendingRefunds: number }
 interface Balances { restaurants: { id: string; name: string; earned: number; paid: number; balance: number; pendingPayouts: number }[]; couriers: { id: string; name: string; earned: number; paid: number; balance: number; cashHeld: number; pendingPayouts: number }[] }
-interface Payout { id: string; beneficiaryType: 'RESTAURANT' | 'COURIER'; beneficiaryId: string; amount: number; method: string; status: string; reference: string | null; note: string; requestedBy: string; approvedBy: string | null; paidAt: string | null; rejectReason: string | null; createdAt: string }
+interface Payout { id: string; beneficiaryType: 'RESTAURANT' | 'COURIER'; beneficiaryId: string; amount: number; method: string; status: string; reference: string | null; note: string; requestedBy: string | null; approvedBy: string | null; paidAt: string | null; rejectReason: string | null; createdAt: string; source?: 'MANUAL' | 'AUTO'; destinationMasked?: string | null; providerStatus?: string | null; lastError?: string | null }
 interface Refund { id: string; orderId: string; orderNumber: string; restaurantName: string; amount: number; reason: string; borneBy: string; status: string; approvals: number; requiredApprovals: number; requestedBy: string; method: string | null; reference: string | null; rejectReason: string | null; createdAt: string }
 interface Remit { id: string; courierId: string; amount: number; receiptNumber: string; note: string; createdAt: string }
 interface Tx { id: string; type: string; reference: string; description: string | null; createdAt: string; entries: { account: string; debit: number; credit: number }[] }
@@ -17,7 +17,7 @@ interface Tx { id: string; type: string; reference: string; description: string 
 type Tab = 'overview' | 'balances' | 'payouts' | 'cash' | 'refunds' | 'ledger';
 const METHODS: [string, string][] = [['MTN_MOMO', 'MTN MoMo'], ['MOOV_MONEY', 'Moov Money'], ['BANK_TRANSFER', 'Virement'], ['CASH', 'Espèces']];
 const methodLabel = (m: string | null) => METHODS.find(([k]) => k === m)?.[1] ?? m ?? '—';
-const PAYOUT_STATUS: Record<string, string> = { PENDING_APPROVAL: 'À approuver', APPROVED: 'Approuvé, à exécuter', PAID: 'Payé', REJECTED: 'Rejeté', CANCELLED: 'Annulé' };
+const PAYOUT_STATUS: Record<string, string> = { PENDING_APPROVAL: 'À approuver', APPROVED: 'Approuvé, à exécuter', PROCESSING: 'Virement en cours', FAILED: 'Virement échoué', PAID: 'Payé', REJECTED: 'Rejeté', CANCELLED: 'Annulé' };
 const REFUND_STATUS: Record<string, string> = { REQUESTED: 'Demandé', APPROVED: 'Approuvé, à payer', PAID: 'Payé', REJECTED: 'Rejeté' };
 
 /** Finances de la plateforme : grand livre, soldes, versements (double validation), espèces, remboursements, exports. */
@@ -138,11 +138,14 @@ function PayoutsTab({ userId, canPay }: { userId: string; canPay: boolean }) {
               <div className="flex flex-wrap justify-between gap-2"><p><b>{fcfa(p.amount)}</b> → {p.beneficiaryType === 'RESTAURANT' ? 'Restaurant' : 'Livreur'} {nameOf(p)} · {methodLabel(p.method)}</p><span className="text-ink-muted">{dateTime(p.createdAt)}</span></div>
               {p.reference && <p className="text-xs text-ink-muted">Référence : {p.reference} · payé le {date(p.paidAt)}</p>}
               {p.rejectReason && <p className="text-xs text-danger">Motif : {p.rejectReason}</p>}
+              {p.source === 'AUTO' && <p className="text-xs text-ink-muted">Virement automatique après livraison{p.destinationMasked ? ` → ${p.destinationMasked}` : ''}{p.providerStatus ? ` · FedaPay : ${p.providerStatus}` : ''}</p>}
+              {p.status === 'FAILED' && p.lastError && <p className="text-xs text-danger">Échec : {p.lastError}</p>}
               {canPay && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {p.status === 'PENDING_APPROVAL' && (p.requestedBy === userId
                     ? <span className="text-xs text-ink-muted">Vous avez préparé ce versement : un autre agent doit l’approuver.</span>
                     : <Button size="sm" onClick={() => run(() => api(`/finance/payouts/${p.id}/approve`, { method: 'POST' }), 'Versement approuvé.')}>Approuver</Button>)}
+                  {p.status === 'FAILED' && p.source === 'AUTO' && <Button size="sm" onClick={() => run(() => api(`/finance/payouts/${p.id}/retry`, { method: 'POST' }), 'Virement relancé.')}>Relancer le virement</Button>}
                   {p.status === 'APPROVED' && <Button size="sm" onClick={() => setPrompt({ id: p.id, kind: 'execute' })}>Marquer comme payé</Button>}
                   {(p.status === 'PENDING_APPROVAL' || p.status === 'APPROVED') && <Button size="sm" variant="outline" onClick={() => setPrompt({ id: p.id, kind: 'reject' })}>Rejeter</Button>}
                 </div>

@@ -54,6 +54,8 @@ export class FinanceController {
   @Post('payouts/:id/approve') @RequirePermission('finance.payouts.execute') approvePayout(@Param('id') id: string, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) { return this.finance.approvePayout(toObjectId(id), a.userId, requestMeta(r)); }
   @Post('payouts/:id/execute') @RequirePermission('finance.payouts.execute')
   executePayout(@Param('id') id: string, @Body(new ZodPipe(referenceBody)) b: z.output<typeof referenceBody>, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) { return this.finance.executePayout(toObjectId(id), b.reference, a.userId, requestMeta(r)); }
+  @Post('payouts/:id/retry') @RequirePermission('finance.payouts.execute')
+  retryPayout(@Param('id') id: string, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) { return this.finance.retryAutoPayout(toObjectId(id), a.userId, requestMeta(r)); }
   @Post('payouts/:id/reject') @RequirePermission('finance.payouts.execute')
   rejectPayout(@Param('id') id: string, @Body(new ZodPipe(reasonBody)) b: z.output<typeof reasonBody>, @CurrentAuth() a: AuthContext, @Req() r: AppRequest) { return this.finance.rejectPayout(toObjectId(id), b.reason, a.userId, requestMeta(r)); }
 

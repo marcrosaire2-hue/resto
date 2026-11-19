@@ -13,7 +13,7 @@ export class CashRemittance {
 }
 export const CashRemittanceSchema = SchemaFactory.createForClass(CashRemittance);
 
-export type PayoutStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'PAID' | 'REJECTED' | 'CANCELLED';
+export type PayoutStatus = 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'REJECTED' | 'CANCELLED';
 
 /** Versement à un restaurant ou à un livreur : demandé, approuvé par une autre personne, puis exécuté avec référence. */
 @Schema({ collection: 'payouts', timestamps: true })
@@ -25,7 +25,15 @@ export class Payout {
   @Prop({ type: String, default: 'PENDING_APPROVAL' }) status: PayoutStatus;
   @Prop({ type: String, default: '' }) note: string;
   @Prop({ type: String, default: null }) reference: string | null;
-  @Prop({ type: Types.ObjectId, required: true }) requestedBy: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, default: null }) requestedBy: Types.ObjectId | null;
+  /** MANUAL : demandé / approuvé / exécuté par l'équipe. AUTO : virement FedaPay déclenché après la livraison d'une commande payée en ligne. */
+  @Prop({ type: String, enum: ['MANUAL', 'AUTO'], default: 'MANUAL' }) source: 'MANUAL' | 'AUTO';
+  @Prop({ type: Types.ObjectId, default: null }) orderId: Types.ObjectId | null;
+  @Prop({ type: { provider: { type: String }, number: { type: String } }, default: null, _id: false }) destination: { provider: 'MTN_MOMO' | 'MOOV_MONEY'; number: string } | null;
+  @Prop({ type: Number, default: null }) providerPayoutId: number | null;
+  @Prop({ type: String, default: null }) providerStatus: string | null;
+  @Prop({ type: Number, default: 0 }) attempts: number;
+  @Prop({ type: String, default: null }) lastError: string | null;
   @Prop({ type: Types.ObjectId, default: null }) approvedBy: Types.ObjectId | null;
   @Prop({ type: Types.ObjectId, default: null }) paidBy: Types.ObjectId | null;
   @Prop({ type: Date, default: null }) paidAt: Date | null;
@@ -33,6 +41,8 @@ export class Payout {
   createdAt: Date;
 }
 export const PayoutSchema = SchemaFactory.createForClass(Payout);
+// Un seul virement automatique par commande (idempotence : jamais deux virements pour la même livraison).
+PayoutSchema.index({ orderId: 1 }, { unique: true, partialFilterExpression: { source: 'AUTO' } });
 
 export type RefundStatus = 'REQUESTED' | 'APPROVED' | 'PAID' | 'REJECTED';
 

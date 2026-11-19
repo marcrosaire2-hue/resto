@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import { randomInt } from 'node:crypto';
 import { Connection, Model, Types } from 'mongoose';
+import { env } from '../../common/env';
 import { conflict, forbidden, notFound, unprocessable } from '../../common/errors';
 import { AuditService } from '../audit/audit.service';
 import { Courier } from '../couriers/courier.schemas';
@@ -9,6 +10,8 @@ import { LedgerService } from '../ledger/ledger.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Order } from '../orders/order.schema';
 import { OrderEventsService } from '../orders/order-events.service';
+import { FedapayClient } from '../payments/fedapay.client';
+import { maskNumber } from '../restaurants/profile.service';
 import { Restaurant } from '../restaurants/restaurant.schema';
 import { SettingsService } from '../settings/settings.service';
 import { User } from '../users/user.schema';
@@ -37,6 +40,7 @@ export class FinanceService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly events: OrderEventsService,
+    private readonly fedapay: FedapayClient,
   ) {}
 
   private async inTx<T>(fn: (s: import('mongoose').ClientSession) => Promise<T>) {
@@ -133,7 +137,7 @@ export class FinanceService {
 
   private async available(type: 'RESTAURANT' | 'COURIER', id: Types.ObjectId, excludePayout?: Types.ObjectId) {
     const b = await this.ledger.balance(this.account(type, id));
-    const reserved = await this.payouts.aggregate<{ s: number }>([{ $match: { beneficiaryId: id, status: { $in: ['PENDING_APPROVAL', 'APPROVED'] }, ...(excludePayout ? { _id: { $ne: excludePayout } } : {}) } }, { $group: { _id: null, s: { $sum: '$amount' } } }]);
+    const reserved = await this.payouts.aggregate<{ s: number }>([{ $match: { beneficiaryId: id, status: { $in: ['PENDING_APPROVAL', 'APPROVED', 'PROCESSING'] }, ...(excludePayout ? { _id: { $ne: excludePayout } } : {}) } }, { $group: { _id: null, s: { $sum: '$amount' } } }]);
     return net(b) - (reserved[0]?.s ?? 0);
   }
 
@@ -151,7 +155,7 @@ export class FinanceService {
     const p = await this.payouts.findById(id);
     if (!p) throw notFound();
     if (p.status !== 'PENDING_APPROVAL') throw unprocessable('INVALID_STATE', 'Ce versement n’est pas en attente d’approbation.');
-    if (p.requestedBy.equals(actor)) throw forbidden('La double validation exige une autre personne que le demandeur.', 'SAME_PERSON');
+    if (p.requestedBy?.equals(actor)) throw forbidden('La double validation exige une autre personne que le demandeur.', 'SAME_PERSON');
     if (p.amount > (await this.available(p.beneficiaryType, p.beneficiaryId, p._id))) throw unprocessable('AMOUNT_TOO_HIGH', 'Le solde disponible a changé : montant trop élevé.');
     const r = await this.payouts.updateOne({ _id: id, status: 'PENDING_APPROVAL' }, { status: 'APPROVED', approvedBy: new Types.ObjectId(actor) });
     if (r.modifiedCount !== 1) throw conflict('STATUS_CHANGED', 'Le versement a changé entre-temps.');
@@ -190,7 +194,124 @@ export class FinanceService {
     if (f.status) q.status = f.status;
     if (f.beneficiaryId) q.beneficiaryId = new Types.ObjectId(f.beneficiaryId);
     const list = await this.payouts.find(q).sort({ createdAt: -1 }).limit(300).lean();
-    return list.map((p) => ({ id: String(p._id), beneficiaryType: p.beneficiaryType, beneficiaryId: String(p.beneficiaryId), amount: p.amount, method: p.method, status: p.status, reference: p.reference, note: p.note, requestedBy: String(p.requestedBy), approvedBy: p.approvedBy ? String(p.approvedBy) : null, paidAt: p.paidAt, rejectReason: p.rejectReason, createdAt: p.createdAt }));
+    return list.map((p) => ({ id: String(p._id), beneficiaryType: p.beneficiaryType, beneficiaryId: String(p.beneficiaryId), amount: p.amount, method: p.method, status: p.status, reference: p.reference, note: p.note, requestedBy: p.requestedBy ? String(p.requestedBy) : null, approvedBy: p.approvedBy ? String(p.approvedBy) : null, paidAt: p.paidAt, rejectReason: p.rejectReason, createdAt: p.createdAt,
+      source: p.source ?? 'MANUAL', orderId: p.orderId ? String(p.orderId) : null, destinationMasked: p.destination ? maskNumber(p.destination.number) : null, providerStatus: p.providerStatus, lastError: p.lastError, attempts: p.attempts ?? 0 }));
+  }
+
+  // ---------- Virements automatiques (FedaPay Payouts) ----------
+  /**
+   * Après livraison d'une commande payée en ligne, vire au restaurant sa part (montant − commission) sur le numéro Mobile Money
+   * qu'il a défini. Idempotent (un seul virement par commande), désactivé tant que AUTO_PAYOUTS n'est pas « on ».
+   * Appelé chaque minute (minuterie interne ou Vercel Cron) : rattrape aussi les commandes dont le restaurant n'avait pas encore de numéro.
+   */
+  async autoPayoutSweep() {
+    if (env().AUTO_PAYOUTS !== 'on' || !this.fedapay.enabled()) return { enabled: false, created: 0, settled: 0, failed: 0, restarted: 0 };
+    const restarted = await this.restartStuckPayouts();
+    const created = await this.createAutoPayouts();
+    const { settled, failed } = await this.reconcileAutoPayouts();
+    return { enabled: true, created, settled, failed, restarted };
+  }
+
+  private async createAutoPayouts() {
+    const done = await this.payouts.distinct('orderId', { source: 'AUTO' });
+    const due = await this.orders
+      .find({ status: 'DELIVERED', paymentMethod: 'MOBILE_MONEY', paymentStatus: 'SUCCEEDED', _id: { $nin: done }, 'finance.restaurantNet': { $gt: 0 } })
+      .setOptions({ crossTenant: true }).sort({ _id: 1 }).limit(50).lean();
+    let created = 0;
+    for (const o of due) {
+      const r = await this.restaurants.findById(o.restaurantId, { payoutAccount: 1, name: 1 }).lean();
+      if (!r?.payoutAccount) continue; // pas de numéro défini : repris au prochain passage, dès que le propriétaire l'enregistre
+      const amount = o.finance.restaurantNet;
+      if (amount > (await this.available('RESTAURANT', o.restaurantId))) continue; // solde insuffisant (ex. remboursement entre-temps) : à traiter à la main
+      let p;
+      try {
+        p = await this.payouts.create({
+          beneficiaryType: 'RESTAURANT', beneficiaryId: o.restaurantId, amount, method: r.payoutAccount.provider, status: 'PROCESSING',
+          source: 'AUTO', orderId: o._id, destination: { provider: r.payoutAccount.provider, number: r.payoutAccount.number }, note: `Commande ${o.number}`, requestedBy: null,
+        });
+      } catch (e) {
+        if ((e as { code?: number }).code === 11000) continue; // déjà créé par un autre passage
+        throw e;
+      }
+      created++;
+      await this.startAutoPayout(p._id, r.name);
+    }
+    return created;
+  }
+
+  /** Crée puis lance le virement chez FedaPay. Toute erreur le marque « échoué » (visible, relançable) : rien n'est perdu en silence. */
+  private async startAutoPayout(id: Types.ObjectId, restaurantName?: string) {
+    const p = await this.payouts.findById(id);
+    if (!p || p.status !== 'PROCESSING' || !p.destination) return;
+    const name = restaurantName ?? (await this.restaurants.findById(p.beneficiaryId, { name: 1 }).lean())?.name ?? 'Restaurant';
+    try {
+      const attempt = (p.attempts ?? 0) + 1;
+      const created = await this.fedapay.createPayout({
+        amount: p.amount, mode: p.destination.provider === 'MOOV_MONEY' ? 'moov' : 'mtn_open', merchantReference: `PAYOUT-${p._id}-${attempt}`,
+        description: p.note, recipient: { name, phone: p.destination.number },
+      });
+      await this.payouts.updateOne({ _id: id }, { providerPayoutId: created.id, providerStatus: created.status, attempts: attempt, lastError: null });
+      await this.fedapay.startPayout(created.id);
+    } catch (e) {
+      await this.failAutoPayout(id, e instanceof Error ? e.message : 'Erreur inconnue');
+    }
+  }
+
+  private async failAutoPayout(id: Types.ObjectId, reason: string) {
+    const p = await this.payouts.findOneAndUpdate({ _id: id, status: 'PROCESSING' }, { status: 'FAILED', lastError: reason.slice(0, 300) }, { new: true });
+    if (!p) return;
+    await this.audit.record({ scope: 'system', action: 'finance.payout_auto_failed', entity: 'payout', entityId: String(id), after: { reason: p.lastError, amount: p.amount }, ip: null, userAgent: null });
+    await this.notifications.notify({
+      userIds: await this.events.opsUsers(), eventKey: `payout:${id}:failed:${p.attempts}`, type: 'payout.failed',
+      title: 'Versement automatique en échec', body: `${p.amount} FCFA — ${p.note}. ${p.lastError ?? ''}`.trim(), link: '/admin/finances',
+    });
+  }
+
+  /** Versements lancés mais restés sans identifiant FedaPay (arrêt du serveur entre-temps) : relancés après 2 minutes. */
+  private async restartStuckPayouts() {
+    const stuck = await this.payouts.find({ source: 'AUTO', status: 'PROCESSING', providerPayoutId: null, createdAt: { $lt: new Date(Date.now() - 2 * 60_000) } }).limit(20).lean();
+    for (const p of stuck) await this.startAutoPayout(p._id);
+    return stuck.length;
+  }
+
+  /** Interroge FedaPay sur les versements en cours : réussi → écriture au grand livre et notification ; échec → marqué échoué. */
+  private async reconcileAutoPayouts() {
+    const pending = await this.payouts.find({ source: 'AUTO', status: 'PROCESSING', providerPayoutId: { $ne: null } }).limit(50);
+    let settled = 0;
+    let failed = 0;
+    for (const p of pending) {
+      let st: string;
+      try { st = (await this.fedapay.retrievePayout(p.providerPayoutId!)).status; } catch { continue; }
+      if (['sent', 'transferred', 'approved'].includes(st)) { await this.settleAutoPayout(p._id, `fedapay:${p.providerPayoutId}`); settled++; }
+      else if (['failed', 'canceled', 'declined', 'expired'].includes(st)) { await this.payouts.updateOne({ _id: p._id }, { providerStatus: st }); await this.failAutoPayout(p._id, `FedaPay : versement ${st}`); failed++; }
+      else if (st !== p.providerStatus) await this.payouts.updateOne({ _id: p._id }, { providerStatus: st });
+    }
+    return { settled, failed };
+  }
+
+  private async settleAutoPayout(id: Types.ObjectId, reference: string) {
+    const p = await this.payouts.findById(id);
+    if (!p || p.status !== 'PROCESSING') return;
+    await this.inTx(async (session) => {
+      const r = await this.payouts.updateOne({ _id: id, status: 'PROCESSING' }, { status: 'PAID', reference, paidAt: new Date(), providerStatus: 'sent' }, { session });
+      if (r.modifiedCount !== 1) throw conflict('STATUS_CHANGED', 'Le versement a changé entre-temps.');
+      await this.ledger.post('payout.paid', String(id), [{ account: this.account(p.beneficiaryType, p.beneficiaryId), debit: p.amount }, { account: 'bank:platform', credit: p.amount }],
+        { restaurantId: p.beneficiaryId, description: `Versement automatique ${reference}`, createdBy: null, session });
+    });
+    await this.audit.record({ scope: 'system', action: 'finance.payout_auto_paid', entity: 'payout', entityId: String(id), after: { reference, amount: p.amount }, ip: null, userAgent: null });
+    await this.notifications.notify({
+      userIds: await this.events.restaurantUsers(p.beneficiaryId, 'payouts.view'), eventKey: `payout:${id}:paid`, type: 'payout.paid',
+      title: 'Versement effectué', body: `${p.amount} FCFA envoyés sur votre numéro Mobile Money — ${p.note}`, link: `/pro/${p.beneficiaryId}/finances`,
+    });
+  }
+
+  /** Relance manuelle d'un versement automatique échoué (nouvel essai chez FedaPay). */
+  async retryAutoPayout(id: Types.ObjectId, actor: string, meta: Meta) {
+    const r = await this.payouts.updateOne({ _id: id, source: 'AUTO', status: 'FAILED' }, { status: 'PROCESSING', providerPayoutId: null, providerStatus: null, lastError: null });
+    if (r.modifiedCount !== 1) throw unprocessable('INVALID_STATE', 'Seul un versement automatique échoué peut être relancé.');
+    await this.audit.record({ actorUserId: actor, scope: 'platform', action: 'finance.payout_auto_retry', entity: 'payout', entityId: String(id), ...meta });
+    await this.startAutoPayout(id);
+    return { id: String(id), status: (await this.payouts.findById(id, { status: 1 }).lean())?.status };
   }
 
   // ---------- Remboursements ----------

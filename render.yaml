@@ -44,6 +44,9 @@ services:
         sync: false
       - key: FEDAPAY_WEBHOOK_SECRET
         sync: false
+      # Virements automatiques aux restaurants après livraison (FedaPay Payouts). À passer à « on » une fois les versements activés sur le compte FedaPay et testés.
+      - key: AUTO_PAYOUTS
+        value: "off"
       - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM_EMAIL

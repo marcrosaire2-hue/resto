@@ -3,6 +3,7 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 import { env } from '../../common/env';
 
 export type FedapayStatus = 'pending' | 'approved' | 'declined' | 'canceled' | 'refunded' | 'transferred' | 'expired' | string;
+export interface FedapayPayout { id: number; status: string; amount: number; merchant_reference?: string | null }
 export interface FedapayTransaction { id: number; status: FedapayStatus; amount: number; currency_id?: number; currency?: { iso?: string }; merchant_reference?: string | null }
 
 /**
@@ -22,7 +23,7 @@ export class FedapayClient {
     return e.FEDAPAY_API_URL ?? (e.FEDAPAY_ENV === 'live' ? 'https://api.fedapay.com/v1' : 'https://sandbox-api.fedapay.com/v1');
   }
 
-  private async call<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  private async call<T>(method: 'GET' | 'POST' | 'PUT', path: string, body?: unknown): Promise<T> {
     const key = env().FEDAPAY_SECRET_KEY;
     if (!key) throw new ServiceUnavailableException({ statusCode: 503, error: 'PAYMENT_UNAVAILABLE', message: 'Le paiement Mobile Money n’est pas disponible pour le moment.' });
     const res = await fetch(`${this.base()}${path}`, {
@@ -50,6 +51,30 @@ export class FedapayClient {
       customer: { firstname: input.customer.firstname, lastname: input.customer.lastname, phone_number: { number: input.customer.phone, country: 'bj' } },
     });
     return FedapayClient.unwrap(r);
+  }
+
+  private static unwrapPayout(r: Record<string, unknown>): FedapayPayout {
+    const t = (r['v1/payout'] ?? r.payout ?? r) as FedapayPayout;
+    if (!t || typeof t.id !== 'number') throw new Error('Réponse FedaPay inattendue');
+    return t;
+  }
+
+  /** Versement vers un numéro Mobile Money (doc FedaPay « Payouts ») : création, puis lancement avec startPayout. */
+  async createPayout(input: { amount: number; mode: 'mtn_open' | 'moov'; merchantReference: string; description: string; recipient: { name: string; phone: string } }) {
+    const [firstname, ...rest] = input.recipient.name.trim().split(/\s+/);
+    const r = await this.call<Record<string, unknown>>('POST', '/payouts', {
+      amount: input.amount, currency: { iso: 'XOF' }, mode: input.mode, description: input.description, merchant_reference: input.merchantReference,
+      customer: { firstname: firstname || 'Restaurant', lastname: rest.join(' ') || 'Miamigo', phone_number: { number: input.recipient.phone, country: 'bj' } },
+    });
+    return FedapayClient.unwrapPayout(r);
+  }
+
+  async startPayout(id: number) {
+    await this.call<unknown>('PUT', '/payouts/start', { payouts: [{ id }] });
+  }
+
+  async retrievePayout(id: number) {
+    return FedapayClient.unwrapPayout(await this.call<Record<string, unknown>>('GET', `/payouts/${id}`));
   }
 
   async token(transactionId: number) {
