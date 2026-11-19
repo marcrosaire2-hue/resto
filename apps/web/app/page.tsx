@@ -1,22 +1,22 @@
 'use client';
 import Link from 'next/link';
-import { MiamigoLogo } from '@/components/brand/miamigo-logo';
 import { useSession } from '@/lib/session';
 
-/** Écran 1 — Lancement : fond sombre, logo, promesse, photo de plat, « Commencer » et lien de connexion. */
+/** Écran 1 — Lancement : photo de plat sur fond sombre, logo officiel (version claire), « Commencer » et connexion. */
 export default function SplashPage() {
   const { me } = useSession();
   return (
     <main className="client-brand relative isolate flex min-h-dvh flex-col overflow-hidden bg-[#141110] text-white">
-      {/* Photo de plat en bas, fondue dans le noir vers le haut */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/demo/plat-detail.jpg" alt="" aria-hidden fetchPriority="high"
-        className="absolute inset-x-0 bottom-0 -z-20 h-[62%] w-full object-cover object-center" />
-      <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,#141110_0%,#141110_36%,rgba(20,17,16,.55)_58%,rgba(20,17,16,.15)_72%,rgba(20,17,16,.85)_100%)]" aria-hidden />
+        className="absolute inset-0 -z-20 size-full object-cover object-[50%_70%]" />
+      <div className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgba(20,17,16,.92)_0%,rgba(20,17,16,.78)_38%,rgba(20,17,16,.25)_62%,rgba(20,17,16,.35)_80%,rgba(20,17,16,.9)_100%)]" aria-hidden />
+      <div className="absolute left-1/2 top-[22%] -z-10 size-[340px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(247,121,15,.38)_0%,rgba(247,121,15,.12)_45%,transparent_70%)]" aria-hidden />
 
-      <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col items-center px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(4.5rem,env(safe-area-inset-top))] text-center">
-        <MiamigoLogo tone="light" layout="stack" />
-        <p className="mt-3 text-[15px] font-medium text-white/85">Bons plats, livraison rapide</p>
+      <div className="mx-auto flex w-full max-w-[460px] flex-1 flex-col items-center px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(2.5rem,env(safe-area-inset-top))] text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/miamigo-logo-light.png" alt="Miamigo — Découvrez, commandez, recevez" width={900} height={716}
+          className="h-auto w-[min(84vw,340px)] select-none drop-shadow-[0_6px_24px_rgba(0,0,0,.45)]" draggable={false} />
 
         <div className="flex-1" />
 
@@ -25,7 +25,7 @@ export default function SplashPage() {
           {me ? 'Commander' : 'Commencer'}
         </Link>
         {!me && (
-          <p className="mt-4 text-sm text-white/80">
+          <p className="mt-4 text-sm text-white/85">
             Déjà un compte ? <Link href="/connexion" className="font-bold text-white hover:underline">Se connecter</Link>
           </p>
         )}
