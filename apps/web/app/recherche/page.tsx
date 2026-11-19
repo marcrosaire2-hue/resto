@@ -17,6 +17,8 @@ type SearchResult = { restaurants: PublicRestaurantCard[]; products: (PublicProd
 export default function SearchPage() {
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
+  // Terme transmis par la recherche de l'accueil (?q=…).
+  useEffect(() => { const initial = new URLSearchParams(window.location.search).get('q'); if (initial) setQ(initial); }, []);
   const [tab, setTab] = useState<'restaurants' | 'plats'>('restaurants');
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [openOnly, setOpenOnly] = useState(false);
