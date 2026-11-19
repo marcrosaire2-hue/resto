@@ -33,6 +33,7 @@ export class OpsService implements OnApplicationBootstrap, OnApplicationShutdown
 
   onApplicationBootstrap() {
     if (env().NODE_ENV === 'test') return;
+    if (env().BACKGROUND_JOBS === 'cron') return; // déclenché par /api/internal/cron (Vercel Cron)
     this.timer = setInterval(() => void this.runAlerts().catch((e) => this.logger.error((e as Error).message)), 30_000);
   }
   onApplicationShutdown() { if (this.timer) clearInterval(this.timer); }

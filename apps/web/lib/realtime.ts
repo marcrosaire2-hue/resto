@@ -4,11 +4,14 @@ import { io, Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
+/** NEXT_PUBLIC_REALTIME=off : hébergement sans serveur permanent (Vercel) → pas de Socket.IO, seulement le rechargement périodique. */
+const realtimeEnabled = process.env.NEXT_PUBLIC_REALTIME !== 'off';
+
 /** Connexion temps réel unique (cookie de session). En production, /socket.io est servi sur le même domaine. */
 export function getSocket(): Socket {
   if (!socket) {
     const url = process.env.NEXT_PUBLIC_SOCKET_URL || window.location.origin;
-    socket = io(url, { path: '/socket.io', withCredentials: true, transports: ['websocket', 'polling'] });
+    socket = io(url, { path: '/socket.io', withCredentials: true, transports: ['websocket', 'polling'], autoConnect: realtimeEnabled });
   }
   return socket;
 }
@@ -29,6 +32,10 @@ export function useLive(sub: { type: 'order' | 'restaurant' | 'user' | 'ops'; id
   const key = sub ? `${sub.type}:${sub.id}` : null;
   useEffect(() => {
     if (!sub) return;
+    if (!realtimeEnabled) {
+      const timer = setInterval(() => cb.current(), fallbackMs);
+      return () => clearInterval(timer);
+    }
     const s = getSocket();
     // « user » : salon personnel rejoint automatiquement à la connexion (notifications).
     const join = () => { if (sub.type !== 'user') s.emit('subscribe', sub); };
