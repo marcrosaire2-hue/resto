@@ -28,7 +28,7 @@ export function TrackingMap({ position }: { position: Position }) {
         radius: 11,
         color: '#ffffff',
         weight: 4,
-        fillColor: '#29382f',
+        fillColor: '#F7790F',
         fillOpacity: 1,
       }).addTo(map.current);
     });
@@ -41,5 +41,5 @@ export function TrackingMap({ position }: { position: Position }) {
     marker.current = null;
   }, []);
 
-  return <div ref={element} className="h-52 w-full overflow-hidden rounded-2xl bg-[#e8eee8]" role="region" aria-label="Position actuelle du livreur" />;
+  return <div ref={element} className="h-56 w-full bg-[#e8eee8]" role="region" aria-label="Position actuelle du livreur" />;
 }
